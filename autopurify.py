@@ -150,8 +150,7 @@ class AutoPurify(midas.frontend.EquipmentBase):
         if t1-self.t0 >= self.client.odb_get(f'{self.odb_settings_dir}/time_step_s'):
 
             # apply control operation
-            # self.pv['setvar'].put(self.pid(self.pv['rdvar'].get()))
-            self.client.msg('TEST: ran autopurify')
+            self.pv['setvar'].put(self.pid(self.pv['rdvar'].get()))
 
             # new t0 and htr setpoint value to check against
             self.t0 = t1
