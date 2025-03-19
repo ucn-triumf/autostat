@@ -4,6 +4,7 @@
 # Mar 2025
 
 import midas
+import midas.frontend
 import epics
 from simple_pid import PID
 import time
@@ -57,14 +58,8 @@ class AutoPurify(midas.frontend.EquipmentBase):
         # You MUST call midas.frontend.EquipmentBase.__init__ in your equipment's __init__ method!
         midas.frontend.EquipmentBase.__init__(self, client, self.equip_name, default_common,default_settings)
 
-        # Get IP address
-        self.host_ip = self.client.odb_get(self.odb_settings_dir + "/host_ip")
-
         # Setup callback on port enable ODB keys
         self.client.odb_watch(self.odb_settings_dir, self.settings_callback)
-
-        global number_packets
-        number_packets = 0
 
         # get epics readback variables to read and write
         # by default uses the monitor backend (desired)
@@ -96,9 +91,6 @@ class AutoPurify(midas.frontend.EquipmentBase):
                                                         # opened safety valve
         self.fpv201_setpt = 0                           # current setpoint of fpv201, for restting
 
-        # watch for settings changed in ODB
-        self.client.odb_watch(self.odb_settings_dir, self.settings_callback)
-
         # You can set the status of the equipment (appears in the midas status page)
         self.set_status("Initialized")
 
@@ -124,17 +116,20 @@ class AutoPurify(midas.frontend.EquipmentBase):
 
         # check that controls are active
         if self.pv['htr204_staton'].get() != 1:
-            self.client.msg(f'HTR204 is not on - stopping autopurify control loop',
+            self.client.msg(f'HTR204 is not on - stopping control loop',
                             is_error=True)
+            self.client.disconnect()
 
         if self.pv['fpv201_staton'].get() != 1:
-            self.client.msg(f'FPV201 is not on - stopping autopurify control loop',
+            self.client.msg(f'FPV201 is not on - stopping control loop',
                             is_error=True)
+            self.client.disconnect()
 
         # check if htr setpoint changed significantly between calls
         if abs(self.pv['setvar'].get() - self.htr204_t0) > 1:
-            self.client.msg(f'HTR204: Setpoint does not match previously set value - stopping autopurify control loop',
+            self.client.msg(f'HTR204 setpoint does not match previously set value - stopping control loop',
                             is_error=True)
+            self.client.disconnect()
 
         # get time
         t1 = time.time()
@@ -144,19 +139,19 @@ class AutoPurify(midas.frontend.EquipmentBase):
             self.fpv201_setpt = self.pv['fpv201_pos'].get()
             self.pv['fpv201_pos'].put(100)
             self.t_panic = time.time()
-            self.client.msg('PT206: Pressure too high! Opening FPV201 to 100%')
+            self.client.msg('PT206 pressure too high! Opening FPV201 to 100%')
 
         # panicking: wait at least 30 s for the pressure to go down
         elif self.pv['fpv201_pos'].get() > 0 and (t1 - self.t_panic) > 30:
             self.pv['fpv201_pos'].put(self.fpv201_setpt)
-            self.client.msg(f'PT206: Pressure back under control! Opening FPV201 to {self.fpv201_setpt:.1f}%')
+            self.client.msg(f'PT206 pressure back under control! Opening FPV201 to {self.fpv201_setpt:.0f}%')
 
         # new control value
         if t1-self.t0 >= self.client.odb_get(f'{self.odb_settings_dir}/time_step_s'):
 
             # apply control operation
             # self.pv['setvar'].put(self.pid(self.pv['rdvar'].get()))
-            self.client.msg('TEST: ran autostat')
+            self.client.msg('TEST: ran autopurify')
 
             # new t0 and htr setpoint value to check against
             self.t0 = t1
@@ -169,33 +164,17 @@ class MyFrontend(midas.frontend.FrontendBase):
     """
     def __init__(self):
         # You must call __init__ from the base class.
-        midas.frontend.FrontendBase.__init__(self, "autostat")
+        midas.frontend.FrontendBase.__init__(self, "autopurify")
 
         self.add_equipment(AutoPurify(self.client))
-        self.client.msg("AutoStat frontend initialized.")
-
-    def begin_of_run(self, run_number):
-        """
-        This function will be called at the beginning of the run.
-        You don't have to define it, but you probably should.
-        You can access individual equipment classes through the `self.equipment`
-        dict if needed.
-        """
-        self.set_all_equipment_status("Running", "greenLight")
-        self.client.msg("Frontend has seen start of run number %d" % run_number)
-        return midas.status_codes["SUCCESS"]
-
-    def end_of_run(self, run_number):
-        self.set_all_equipment_status("Finished", "greenLight")
-        self.client.msg("Frontend has seen end of run number %d" % run_number)
-        return midas.status_codes["SUCCESS"]
+        self.client.msg("AutoPurify frontend initialized.")
 
     def frontend_exit(self):
         """
         Most people won't need to define this function, but you can use
         it for final cleanup if needed.
         """
-        self.client.msg("Autostat frontend stopped.")
+        self.client.msg("AutoPurify frontend stopped.")
 
 if __name__ == "__main__":
     # The main executable is very simple - just create the frontend object,
