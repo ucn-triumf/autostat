@@ -73,9 +73,9 @@ class AutoPurify(midas.frontend.EquipmentBase):
 
         # Settings
         default_settings = collections.OrderedDict([
-            ("P", 1),
-            ("I", 0),
-            ("D", 0),
+            ("P", 1.0),
+            ("I", 0.0),
+            ("D", 0.0),
             ("setpoint", 1400),
             ("time_step_s", 60),
             ("pressure_high_thresh", 1480),
