@@ -103,14 +103,14 @@ class AutoPurify(midas.frontend.EquipmentBase):
         # setup PID controller
         # see https://simple-pid.readthedocs.io/en/latest/reference.html
         self.pid = PID(
-            Kp = default_settings['P'],                 # P
-            Ki = default_settings['I'],                 # I
-            Kd = default_settings['D'],                 # D
-            setpoint = default_settings['setpoint'],    # target pressure
-            output_limits = (default_settings['output_limit_low'],
-                             default_settings['output_limit_high']), # HTR204 setpoint limits
-            proportional_on_measurement = default_settings['proportional_on_measurement'],
-            differential_on_measurement = default_settings['differential_on_measurement'],
+            Kp = self.client.odb_get(f'{self.odb_settings_dir}/P'), # P
+            Ki = self.client.odb_get(f'{self.odb_settings_dir}/I'), # I
+            Kd = self.client.odb_get(f'{self.odb_settings_dir}/D'), # D
+            setpoint = self.client.odb_get(f'{self.odb_settings_dir}/setpoint'), # target pressure
+            output_limits = (self.client.odb_get(f'{self.odb_settings_dir}/output_limit_low'),
+                             self.client.odb_get(f'{self.odb_settings_dir}/output_limit_high')), # HTR204 setpoint limits
+            proportional_on_measurement = self.client.odb_get(f'{self.odb_settings_dir}/proportional_on_measurement'),
+            differential_on_measurement = self.client.odb_get(f'{self.odb_settings_dir}/differential_on_measurement'),
             starting_output = self.pv['setvar'].get() # The starting point for the PID’s output.
             )
 
@@ -119,7 +119,8 @@ class AutoPurify(midas.frontend.EquipmentBase):
         self.htr204_t0 = self.pv['setvar'].get()         # heater setpoint of last read/set
         self.t_panic = 0                                # time at which we have panicked and
                                                         # opened safety valve
-        self.fpv201_setpt = 0                           # current setpoint of fpv201, for restting
+        self.fpv201_setpt = 0                           # current setpoint of fpv201, for reset
+        self.time_step_s = self.client.odb_get(f'{self.odb_settings_dir}/time_step_s')
 
         # You can set the status of the equipment (appears in the midas status page)
         self.set_status("Initialized")
@@ -134,8 +135,9 @@ class AutoPurify(midas.frontend.EquipmentBase):
                                  odb_value['output_limit_high'])
         self.pid.proportional_on_measurement = odb_value['proportional_on_measurement']
         self.pid.differential_on_measurement = odb_value['differential_on_measurement']
+        self.time_step_s = odb_value['time_step_s']
 
-        client.msg(f'{self.equip_name} settings changed: P={self.pid.Kp}, I={self.pid.Ki}, D={self.pid.Kd}, setpoint={self.pid.setpoint}, limits={self.pid.output_limit}, prop_on_meas={self.pid.proportional_on_measurement}, diff_on_meas={self.pid.differential_on_measurement}')
+        client.msg(f'{self.equip_name} settings changed: P={self.pid.Kp}, I={self.pid.Ki}, D={self.pid.Kd}, setpoint={self.pid.setpoint}, limits={self.pid.output_limit}, prop_on_meas={self.pid.proportional_on_measurement}, diff_on_meas={self.pid.differential_on_measurement}, time_step_s={self.time_step_s}')
 
     def readout_func(self):
         """
@@ -146,19 +148,22 @@ class AutoPurify(midas.frontend.EquipmentBase):
 
         # check that controls are active
         if self.pv['htr204_staton'].get() != 1:
-            self.client.msg(f'HTR204 is not on - stopping control loop',
-                            is_error=True)
+            msg = f'HTR204 is not on - stopping AutoPurify'
+            self.client.trigger_internal_alarm('AutoPurifyStop', msg,
+                                               default_alarm_class='Warning')
             self.client.disconnect()
 
         if self.pv['fpv201_staton'].get() != 1:
-            self.client.msg(f'FPV201 is not on - stopping control loop',
-                            is_error=True)
+            msg = f'FPV201 is not on - stopping AutoPurify'
+            self.client.trigger_internal_alarm('AutoPurifyStop', msg,
+                                               default_alarm_class='Warning')
             self.client.disconnect()
 
         # check if htr setpoint changed significantly between calls
         if abs(self.pv['setvar'].get() - self.htr204_t0) > 1:
-            self.client.msg(f'HTR204 setpoint does not match previously set value - stopping control loop',
-                            is_error=True)
+            msg = f'HTR204 setpoint does not match previously set value - stopping AutoPurify'
+            self.client.trigger_internal_alarm('AutoPurifyStop', msg,
+                                               default_alarm_class='Warning')
             self.client.disconnect()
 
         # get time
@@ -177,7 +182,7 @@ class AutoPurify(midas.frontend.EquipmentBase):
             self.client.msg(f'PT206 pressure back under control! Opening FPV201 to {self.fpv201_setpt:.0f}%')
 
         # new control value
-        if t1-self.t0 >= self.client.odb_get(f'{self.odb_settings_dir}/time_step_s'):
+        if t1-self.t0 >= self.time_step_s:
 
             # apply control operation
             self.pv['setvar'].put(self.pid(self.pv['rdvar'].get()))
