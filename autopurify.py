@@ -167,10 +167,13 @@ class AutoPurify(midas.frontend.EquipmentBase):
         while abs(self.pv[setname].get() - val) > 1:
             time.sleep(delay)
             self.pv[setname].put(val)
-            n += 0
+            n += 1
             
             if n > nlimit: 
-                self.client.
+                msg = f'Cannot set {setname} to {val}. Tried {nlimit} attempts. Consider setting manually.'
+                n = 0
+                self.client.trigger_internal_alarm('AutoPurifyStop', msg,
+                                               default_alarm_class='Warning')
 
     def _get_limited_var(self, varname):
         val = self.client.odb_get(f'{self.odb_settings_dir}/{varname}')
@@ -250,6 +253,7 @@ class AutoPurify(midas.frontend.EquipmentBase):
             self.client.trigger_internal_alarm('AutoPurifyStop', msg,
                                                default_alarm_class='Warning')
             self.client.disconnect()
+            return
 
         if self.pv['fpv201_staton'].get() != 1:
             msg = f'FPV201 is not on - stopping AutoPurify'
@@ -257,15 +261,17 @@ class AutoPurify(midas.frontend.EquipmentBase):
             self.client.trigger_internal_alarm('AutoPurifyStop', msg,
                                                default_alarm_class='Warning')
             self.client.disconnect()
+            return
 
         # check if htr setpoint changed significantly between calls
         if abs(self.pv['setvar'].get() - self.htr204_t0) > 1:
-            msg = f'HTR204 setpoint ({self.pv["setvar"].get():.1f}) does not match '+\
-                  f'previously set value ({self.htr204_t0:.1f})- stopping AutoPurify'
+            msg = f'HTR204 setpoint ({self.pv["setvar"].get():.0f}) does not match '+\
+                  f'previously set value ({self.htr204_t0:.0f})- stopping AutoPurify'
             self._ensure_set('setvar', 0)
             self.client.trigger_internal_alarm('AutoPurifyStop', msg,
                                                default_alarm_class='Warning')
             self.client.disconnect()
+            return
 
         # get time
         t1 = time.time()
