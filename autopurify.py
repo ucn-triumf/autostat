@@ -58,11 +58,11 @@ class AutoPurify(midas.frontend.EquipmentBase):
     """
     
     # settable limits
-    LIMITS = {  'setpoint': (0, 1500),
+    LIMITS = {  'pt206_setpoint': (0, 1500),
                 'time_step_s': (0, 500),
-                'pressure_high_thresh': (0, 1500),
-                'output_limit_low': (0, 1000),
-                'output_limit_high': (0, 1000)
+                'pt206_pressure_high_thresh': (0, 1500),
+                'htr204_output_limit_low': (0, 1000),
+                'htr204_output_limit_high': (0, 1000)
              }
              
     # must be lower than this
@@ -88,11 +88,11 @@ class AutoPurify(midas.frontend.EquipmentBase):
             ("P", 1.0),
             ("I", 0.0),
             ("D", 0.0),
-            ("setpoint", 1400),
+            ("pt206_setpoint", 1400),
             ("time_step_s", 60),
-            ("pressure_high_thresh", 1480),
-            ("output_limit_low", 0),
-            ("output_limit_high", 1000),
+            ("pt206_pressure_high_thresh", 1480),
+            ("htr204_output_limit_low", 0),
+            ("htr204_output_limit_high", 1000),
             ("proportional_on_measurement", False),
             ("differential_on_measurement", False),
         ])
@@ -120,9 +120,9 @@ class AutoPurify(midas.frontend.EquipmentBase):
             Kp = self.client.odb_get(f'{self.odb_settings_dir}/P'), # P
             Ki = self.client.odb_get(f'{self.odb_settings_dir}/I'), # I
             Kd = self.client.odb_get(f'{self.odb_settings_dir}/D'), # D
-            setpoint = self._get_limited_var('setpoint'), # target pressure
-            output_limits = (self._get_limited_var('output_limit_low'),
-                             self._get_limited_var('output_limit_high')), # HTR204 setpoint limits
+            setpoint = self._get_limited_var('pt206_setpoint'), # target pressure
+            output_limits = (self._get_limited_var('htr204_output_limit_low'),
+                             self._get_limited_var('htr204_output_limit_high')), # HTR204 setpoint limits
             proportional_on_measurement = self.client.odb_get(f'{self.odb_settings_dir}/proportional_on_measurement'),
             differential_on_measurement = self.client.odb_get(f'{self.odb_settings_dir}/differential_on_measurement'),
             starting_output = self.pv['setvar'].get() # The starting point for the PID’s output.
@@ -133,7 +133,7 @@ class AutoPurify(midas.frontend.EquipmentBase):
         self.htr204_t0 = self.pv['setvar'].get()        # heater setpoint of last read/set
         self.t_panic = 0                                # time at which we have panicked and
                                                         # opened safety valve
-        self.panic_thresh = self._get_limited_var('pressure_high_thresh')
+        self.panic_thresh = self._get_limited_var('pt206_pressure_high_thresh')
         self.panic_state = False
         
         self.fpv201_setpt = self.pv['fpv201_pos'].get() # current setpoint of fpv201, for reset
@@ -193,11 +193,11 @@ class AutoPurify(midas.frontend.EquipmentBase):
         if val < lim[0]:
             val = lim[0]
             self.client.odb_set(f'{self.odb_settings_dir}/{varname}', val)
-            self.client.msg(f'{varname} value too low, bounded by {lim[0]}')
+            self.client.msg(f'"{varname}" value too low, bounded by {lim[0]}')
         elif val > lim[1]:
             val = lim[1]
             self.client.odb_set(f'{self.odb_settings_dir}/{varname}', val)
-            self.client.msg(f'{varname} value too high, bounded by {lim[1]}')
+            self.client.msg(f'"{varname}" value too high, bounded by {lim[1]}')
 
         return val
 
@@ -210,11 +210,11 @@ class AutoPurify(midas.frontend.EquipmentBase):
         self.pid.Kd = odb_value['D']
         
         # setpoint
-        self.pid.setpoint = self._limit_var('setpoint', odb_value['setpoint'])
+        self.pid.setpoint = self._limit_var('pt206_setpoint', odb_value['pt206_setpoint'])
         
         # output limits
-        val0 = self._limit_var('output_limit_low', odb_value['output_limit_low'])
-        val1 = self._limit_var('output_limit_high', odb_value['output_limit_high'])
+        val0 = self._limit_var('htr204_output_limit_low', odb_value['htr204_output_limit_low'])
+        val1 = self._limit_var('htr204_output_limit_high', odb_value['htr204_output_limit_high'])
         self.pid.output_limits = (val0, val1)
         
         # boolean values
@@ -225,8 +225,8 @@ class AutoPurify(midas.frontend.EquipmentBase):
         self.time_step_s = self._limit_var('time_step_s', odb_value['time_step_s'])
 
         # panic threshold
-        self.panic_thresh = self._limit_var('pressure_high_thresh',
-                                            odb_value['pressure_high_thresh'])
+        self.panic_thresh = self._limit_var('pt206_pressure_high_thresh',
+                                            odb_value['pt206_pressure_high_thresh'])
 
         msg = [f'P={self.pid.Kp}',
                f'I={self.pid.Ki}', 
