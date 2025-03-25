@@ -22,6 +22,7 @@ This runs the cryostat in heater-on mode. It uses a PID loop to control HTR204 i
 * If PT206 is below threshold and FPV201 is 100% open, then reset FPV201 to the value prior to the script changing its value
 * If at any point FPV201 or HTR204 are turned off, stop PID control
 * If at any point HTR204 has changed by more than 1 mA between control operations, then stop PID control
+* Added by Jeff:  If FPV203 and FPV209 are above 40% and all others below 40%, run.  Otherwise exit (both when starting autopurify and while running).
 
 ### ODB settings (/Equipment/AutoPurify/Settings)
 * `P`: proportional control value
