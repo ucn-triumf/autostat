@@ -389,6 +389,8 @@ class MyFrontend(midas.frontend.FrontendBase):
         Most people won't need to define this function, but you can use
         it for final cleanup if needed.
         """
+        # Set HTR204 to 0 after normal exit
+        self.equipment['AutoPurify']._ensure_set('setvar', 0)
         self.client.msg("AutoPurify frontend stopped.")
 
 if __name__ == "__main__":
