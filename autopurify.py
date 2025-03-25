@@ -178,7 +178,6 @@ class AutoPurify(midas.frontend.EquipmentBase):
             self.client.msg(f'Only FPV203 and FPV209 should be open. FPV211 autofill should be off. Check all FPVs and AV203', is_error=True)
             self.disconnect()
 
-
         # You can set the status of the equipment (appears in the midas status page)
         self.set_status("Initialized")
 
