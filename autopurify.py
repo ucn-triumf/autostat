@@ -93,7 +93,7 @@ class AutoPurify(midas.frontend.EquipmentBase):
     # these keys need to be listed as a part of EPICS_PV
 
     # readbacks which should be below a threshold value (float)
-    DEVICE_THRESH_OFF={ 'fpv201_read': 20,
+    DEVICE_THRESH_OFF= {'fpv201_read': 20,
                         'fpv202_read': 10,
                         'fpv204_read': 10,
                         'fpv205_read': 10,
@@ -101,7 +101,7 @@ class AutoPurify(midas.frontend.EquipmentBase):
                         'fpv207_read': 10,
                         'fpv208_read': 10,
                         'fpv211_read': 2,
-                        'fpv212_read': 50},
+                        'fpv212_read': 50}
 
     # readbacks should be above a threshold value (float)
     DEVICE_THRESH_ON = {'fpv203_read':80,
@@ -114,7 +114,7 @@ class AutoPurify(midas.frontend.EquipmentBase):
 
     # the state of these devices should be on (boolean 1)
     DEVICE_STATE_ON = [ 'htr204_staton',
-                        'fpv201_staton'],
+                        'fpv201_staton']
 
     def __init__(self, client):
         # The name of our equipment. This name will be used on the midas status
