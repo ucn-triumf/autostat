@@ -60,18 +60,62 @@ class AutoPurify(midas.frontend.EquipmentBase):
     If you're creating a "polled" equipment (rather than a periodic one), you
     should also define a `poll_func` function in addition to `readout_func`.
     """
-    
+
     # settable limits
     LIMITS = {  'pt206_setpoint': (0, 1500),
                 'time_step_s': (0, 500),
                 'pt206_pressure_high_thresh': (0, 1500),
                 'htr204_output_limit_low': (0, 1000),
-                'htr204_output_limit_high': (0, 1000)
-             }
-             
-    # must be lower than this
-    FPV201_START_LIMIT = 40 
-    
+                'htr204_output_limit_high': (0, 1000)}
+
+    # devices/indicators from epics to monitor or write to
+    EPICS_PV = {'htr204_cur':       'UCN2:HE4:HTR204:CUR', # write access
+                'pt206_read':       'UCN2:HE4:PT206:RDPRESS',
+                'htr204_staton':    'UCN2:HE4:HTR204:STATON',
+                'fpv201_pos':       'UCN2:HE4:FPV201:POS',
+                'fpv201_staton':    'UCN2:HE4:FPV201:STATON',
+                'fpv201_read':      'UCN2:HE4:FPV201:RDDACP',
+                'fpv202_read':      'UCN2:HE4:FPV202:RDDACP',
+                'fpv203_read':      'UCN2:HE4:FPV203:RDDACP',
+                'fpv204_read':      'UCN2:HE4:FPV204:RDDACP',
+                'fpv205_read':      'UCN2:HE4:FPV205:RDDACP',
+                'fpv206_read':      'UCN2:HE4:FPV206:RDDACP',
+                'fpv207_read':      'UCN2:HE4:FPV207:RDDACP',
+                'fpv208_read':      'UCN2:HE4:FPV208:RDDACP',
+                'fpv209_read':      'UCN2:HE4:FPV209:RDDACP',
+                'fpv211_read':      'UCN2:HE4:FPV211:RDDACP',
+                'fpv212_read':      'UCN2:HE4:FPV212:RDDACP',
+                'av203_staton':     'UCN2:HE4:AV203:STATON',
+                'fpv211_staton':    'UCN2:HE4:FPV211:STATON',
+                'fpv211autofill_staton': 'UCN2:HE4:FPV211:STAT.B8'}
+
+    # devices to check throughout operation
+    # these keys need to be listed as a part of EPICS_PV
+
+    # readbacks which should be below a threshold value (float)
+    DEVICE_THRESH_OFF={ 'fpv201_read': 20,
+                        'fpv202_read': 10,
+                        'fpv204_read': 10,
+                        'fpv205_read': 10,
+                        'fpv206_read': 10,
+                        'fpv207_read': 10,
+                        'fpv208_read': 10,
+                        'fpv211_read': 2,
+                        'fpv212_read': 50},
+
+    # readbacks should be above a threshold value (float)
+    DEVICE_THRESH_ON = {'fpv203_read':80,
+                        'fpv209_read':20}
+
+    # the state of these devices should be off (boolean 0)
+    DEVICE_STATE_OFF = ['av203_staton',
+                        'fpv211autofill_staton',
+                        'fpv211_staton']
+
+    # the state of these devices should be on (boolean 1)
+    DEVICE_STATE_ON = [ 'htr204_staton',
+                        'fpv201_staton'],
+
     def __init__(self, client):
         # The name of our equipment. This name will be used on the midas status
         # page, and our info will appear in /Equipment/AutoPurify in
@@ -89,17 +133,16 @@ class AutoPurify(midas.frontend.EquipmentBase):
 
         # Settings
         default_settings = collections.OrderedDict([
-            ("P", 1.0),
-            ("I", 0.0),
+            ("P", 0.9),
+            ("I", 0.04),
             ("D", 0.0),
             ("pt206_setpoint", 1400),
-            ("time_step_s", 60),
+            ("time_step_s", 10),
             ("pt206_pressure_high_thresh", 1480),
             ("htr204_output_limit_low", 0),
             ("htr204_output_limit_high", 1000),
             ("proportional_on_measurement", False),
-            ("differential_on_measurement", False),
-        ])
+            ("differential_on_measurement", False)])
 
         # You MUST call midas.frontend.EquipmentBase.__init__ in your equipment's __init__ method!
         midas.frontend.EquipmentBase.__init__(self, client, self.equip_name, default_common,default_settings)
@@ -109,27 +152,7 @@ class AutoPurify(midas.frontend.EquipmentBase):
 
         # get epics readback variables to read and write
         # by default uses the monitor backend (desired)
-        self.pv = {'setvar': epics.PV('UCN2:HE4:HTR204:CUR'), # set this variable
-                   'rdvar': epics.PV('UCN2:HE4:PT206:RDPRESS'), # control this variable to be at setpoint
-                   'htr204_staton': epics.PV('UCN2:HE4:HTR204:STATON'),
-                   'fpv201_pos': epics.PV('UCN2:HE4:FPV201:POS'),
-                   'fpv201_staton': epics.PV('UCN2:HE4:FPV201:STATON'),
-                   'fpv201_read': epics.PV('UCN2:HE4:FPV201:RDDACP'), # Jeff added this and the following so that we can check the status of all FPV's and AV203
-                   'fpv202_read': epics.PV('UCN2:HE4:FPV202:RDDACP'),
-                   'fpv203_read': epics.PV('UCN2:HE4:FPV203:RDDACP'),
-                   'fpv204_read': epics.PV('UCN2:HE4:FPV204:RDDACP'),
-                   'fpv205_read': epics.PV('UCN2:HE4:FPV205:RDDACP'),
-                   'fpv206_read': epics.PV('UCN2:HE4:FPV206:RDDACP'),
-                   'fpv207_read': epics.PV('UCN2:HE4:FPV207:RDDACP'),
-                   'fpv208_read': epics.PV('UCN2:HE4:FPV208:RDDACP'),
-                   'fpv209_read': epics.PV('UCN2:HE4:FPV209:RDDACP'),
-                   'fpv211_read': epics.PV('UCN2:HE4:FPV211:RDDACP'),
-                   'fpv212_read': epics.PV('UCN2:HE4:FPV212:RDDACP'),
-                   'av203_staton': epics.PV('UCN2:HE4:AV203:STATON'),
-                   'fpv211_autostat': epics.PV('UCN2:HE4:FPV211:STAT.B8'),
-                  }
-
-        # get limited values
+        self.pv = {key: epics.PV(val) for key, val in self.EPICS_PV.items()}
 
         # setup PID controller
         # see https://simple-pid.readthedocs.io/en/latest/reference.html
@@ -142,68 +165,95 @@ class AutoPurify(midas.frontend.EquipmentBase):
                              self._get_limited_var('htr204_output_limit_high')), # HTR204 setpoint limits
             proportional_on_measurement = self.client.odb_get(f'{self.odb_settings_dir}/proportional_on_measurement'),
             differential_on_measurement = self.client.odb_get(f'{self.odb_settings_dir}/differential_on_measurement'),
-            starting_output = self.pv['setvar'].get() # The starting point for the PID’s output.
+            starting_output = self.pv['htr204_cur'].get() # The starting point for the PID’s output.
             )
 
         # setup start of run values
         self.t0 = time.time()                           # time of last set value
-        self.htr204_t0 = self.pv['setvar'].get()        # heater setpoint of last read/set
+        self.htr204_t0 = self.pv['htr204_cur'].get()    # heater setpoint of last read/set
         self.t_panic = 0                                # time at which we have panicked and
                                                         # opened safety valve
         self.panic_thresh = self._get_limited_var('pt206_pressure_high_thresh')
         self.panic_state = False
-        
+
         self.fpv201_setpt = self.pv['fpv201_pos'].get() # current setpoint of fpv201, for reset
         self.time_step_s = self._get_limited_var('time_step_s')
 
-        # check that FPV201 is suitably low, to allow to relief of pressure
-        if self.pv['fpv201_pos'].get() > self.FPV201_START_LIMIT:
-            self.client.msg(f'FPV201 setpoint ({self.pv["fpv201_pos"].get():.1f}) too high (>{self.FPV201_START_LIMIT}), cannot guarantee relief of pressure if PT206 gets too high', is_error=True)
-            self.disconnect()
-
         # check to make sure that the pattern of FPV's and AV203 is correct
-        if (self.pv['fpv201_read'].get() > self.FPV201_START_LIMIT     # ON
-            or self.pv['fpv202_read'].get() > self.FPV201_START_LIMIT  # ON
-            or self.pv['fpv203_read'].get() < self.FPV201_START_LIMIT  # OFF
-            or self.pv['fpv204_read'].get() > self.FPV201_START_LIMIT  # ON
-            or self.pv['fpv205_read'].get() > self.FPV201_START_LIMIT  # ON
-            or self.pv['fpv206_read'].get() > self.FPV201_START_LIMIT  # ON
-            or self.pv['fpv207_read'].get() > self.FPV201_START_LIMIT  # ON
-            or self.pv['fpv208_read'].get() > self.FPV201_START_LIMIT  # ON
-            or self.pv['fpv209_read'].get() < self.FPV201_START_LIMIT  # OFF
-            or self.pv['fpv211_read'].get() > self.FPV201_START_LIMIT  # ON
-            or self.pv['fpv212_read'].get() > self.FPV201_START_LIMIT  # ON
-            or self.pv['av203_staton'].get() == 1 
-            or self.pv['fpv211_autostat'].get() == 1):
-            self.client.msg(f'Only FPV203 and FPV209 should be open. FPV211 autofill should be off. Check all FPVs and AV203', is_error=True)
+        if not self._check_device_states():
             self.disconnect()
 
         # You can set the status of the equipment (appears in the midas status page)
         self.set_status("Initialized")
 
+    def _check_device_states(self):
+        """Check set of valves.
+
+        Returns:
+            bool: if true, everything is ok, else should disconnect
+        """
+
+        state_ok = True
+
+        # if any of the following conditions are true, then the flow state is
+        # not correct and we disconnect
+
+        # these should be off
+        for name, lim in self.DEVICE_THRESH_OFF.items():
+            if self.pv[name].get() > lim:
+                state_ok = False
+                name_pretty = name.split("_")[0].upper()
+                self.client.msg(f'"{name_pretty}" is above threshold ({lim})',
+                                is_error=True)
+
+        # these should be on
+        for name, lim in self.DEVICE_THRESH_ON.items():
+            if self.pv[name].get() < lim:
+                state_ok = False
+                name_pretty = name.split("_")[0].upper()
+                self.client.msg(f'"{name_pretty}" is below threshold ({lim})',
+                                is_error=True)
+
+        # these should be off
+        for name in self.DEVICE_STATE_OFF:
+            if int(self.pv[name].get()):
+                state_ok = False
+                name_pretty = name.split("_")[0].upper()
+                self.client.msg(f'"{name_pretty}" should not be in the ON state. Turn it OFF',
+                                is_error=True)
+
+        # these should be on
+        for name in self.DEVICE_STATE_ON:
+            if not int(self.pv[name].get()):
+                state_ok = False
+                name_pretty = name.split("_")[0].upper()
+                self.client.msg(f'"{name_pretty}" should not be in the OFF state. Turn it ON',
+                                is_error=True)
+        return state_ok
+
     def _ensure_set(self, setname, val):
         """Ensure value is set by checking the readback periodically after set
-        
-        Args: 
+
+        Args:
             setname (str): name of the variable to set, without full path
             readname (str): name of the variable to read, without full path
             val (float): value to set
         """
-        
+
         # time between set attempts in seconds
-        delay = 1 
-        
+        delay = 1
+
         # number of attempts limit
         nlimit = 100
         n = 0
-        
+
         # try to repeatedly set the value
         while abs(self.pv[setname].get() - val) > 1:
             time.sleep(delay)
             self.pv[setname].put(val)
             n += 1
-            
-            if n > nlimit: 
+
+            if n > nlimit:
                 msg = f'Cannot set {setname} to {val}. Tried {nlimit} attempts. Consider setting manually.'
                 n = 0
                 self.client.trigger_internal_alarm('AutoPurifyStop', msg,
@@ -214,12 +264,12 @@ class AutoPurify(midas.frontend.EquipmentBase):
         return self._limit_var(varname, val)
 
     def _limit_var(self, varname, val):
-        """Get a variable while respecting the limits 
-        
+        """Get a variable while respecting the limits
+
         Args:
             varname (str): name of the variable, without full path
             odb_value (dict): dict that was passed to settings_callback
-        Returns: 
+        Returns:
             float: value, forced within limits
         """
 
@@ -237,24 +287,24 @@ class AutoPurify(midas.frontend.EquipmentBase):
 
     def settings_callback(self, client, path, odb_value):
         """Callback function when setting tree is changed"""
-        
+
         # PID
         self.pid.Kp = odb_value['P']
         self.pid.Ki = odb_value['I']
         self.pid.Kd = odb_value['D']
-        
+
         # setpoint
         self.pid.setpoint = self._limit_var('pt206_setpoint', odb_value['pt206_setpoint'])
-        
+
         # output limits
         val0 = self._limit_var('htr204_output_limit_low', odb_value['htr204_output_limit_low'])
         val1 = self._limit_var('htr204_output_limit_high', odb_value['htr204_output_limit_high'])
         self.pid.output_limits = (val0, val1)
-        
+
         # boolean values
         self.pid.proportional_on_measurement = odb_value['proportional_on_measurement']
         self.pid.differential_on_measurement = odb_value['differential_on_measurement']
-        
+
         # time step
         self.time_step_s = self._limit_var('time_step_s', odb_value['time_step_s'])
 
@@ -263,10 +313,10 @@ class AutoPurify(midas.frontend.EquipmentBase):
                                             odb_value['pt206_pressure_high_thresh'])
 
         msg = [f'P={self.pid.Kp}',
-               f'I={self.pid.Ki}', 
-               f'D={self.pid.Kd}', 
-               f'setpoint={self.pid.setpoint}', 
-               f'limits={self.pid.output_limits}', 
+               f'I={self.pid.Ki}',
+               f'D={self.pid.Kd}',
+               f'setpoint={self.pid.setpoint}',
+               f'limits={self.pid.output_limits}',
                f'prop_on_meas={self.pid.proportional_on_measurement}',
                f'diff_on_meas={self.pid.differential_on_measurement}',
                f'pressure_high_thresh={self.panic_thresh}',
@@ -281,50 +331,21 @@ class AutoPurify(midas.frontend.EquipmentBase):
         or None (if we shouldn't write an event).
         """
 
-        # check that controls are active
-        if self.pv['htr204_staton'].get() != 1:
-            self._ensure_set('setvar', 0)
-            msg = f'HTR204 is not on - stopping AutoPurify'
-            self.client.trigger_internal_alarm('AutoPurifyStop', msg,
-                                               default_alarm_class='Warning')
-            self.client.disconnect()
-            return
-
-        if self.pv['fpv201_staton'].get() != 1:
-            msg = f'FPV201 is not on - stopping AutoPurify'
-            self._ensure_set('setvar', 0)
-            self.client.trigger_internal_alarm('AutoPurifyStop', msg,
-                                               default_alarm_class='Warning')
-            self.client.disconnect()
-            return
-
         # check to make sure that the pattern of FPV's and AV203 is correct
-        if (self.pv['fpv201_read'].get() > self.FPV201_START_LIMIT      # ON
-            or self.pv['fpv202_read'].get() > self.FPV201_START_LIMIT   # ON
-            or self.pv['fpv203_read'].get() < self.FPV201_START_LIMIT   # OFF
-            or self.pv['fpv204_read'].get() > self.FPV201_START_LIMIT   # ON
-            or self.pv['fpv205_read'].get() > self.FPV201_START_LIMIT   # ON
-            or self.pv['fpv206_read'].get() > self.FPV201_START_LIMIT   # ON
-            or self.pv['fpv207_read'].get() > self.FPV201_START_LIMIT   # ON
-            or self.pv['fpv208_read'].get() > self.FPV201_START_LIMIT   # ON
-            or self.pv['fpv209_read'].get() < self.FPV201_START_LIMIT   # OFF
-            or self.pv['fpv211_read'].get() > self.FPV201_START_LIMIT   # ON
-            or self.pv['fpv212_read'].get() > self.FPV201_START_LIMIT   # ON
-            or self.pv['av203_staton'].get() == 1
-            or self.pv['fpv211_autostat'].get() == 1) and not self.panic_state:
-
-            self._ensure_set('setvar', 0)
-            msg = f'Only FPV203 and FPV209 should be open. FPV211 autofill should be off. Check all FPVs and AV203'
-            self.client.trigger_internal_alarm('AutoPurifyStop', msg,
-                                               default_alarm_class='Warning')
+        # exceptions to be made if in panic state
+        if not self.panic_state and not self._check_device_states():
+            self._ensure_set('htr204_cur', 0)
+            self.client.trigger_internal_alarm('AutoPurifyStop',
+                'A device state is incorrect. See messages.',
+                default_alarm_class='Warning')
             self.client.disconnect()
             return
 
         # check if htr setpoint changed significantly between calls
-        if abs(self.pv['setvar'].get() - self.htr204_t0) > 1:
-            msg = f'HTR204 setpoint ({self.pv["setvar"].get():.0f}) does not match '+\
+        if abs(self.pv['htr204_cur'].get() - self.htr204_t0) > 1:
+            msg = f'HTR204 setpoint ({self.pv["htr204_cur"].get():.0f}) does not match '+\
                   f'previously set value ({self.htr204_t0:.0f})- stopping AutoPurify'
-            self._ensure_set('setvar', 0)
+            self._ensure_set('htr204_cur', 0)
             self.client.trigger_internal_alarm('AutoPurifyStop', msg,
                                                default_alarm_class='Warning')
             self.client.disconnect()
@@ -334,29 +355,29 @@ class AutoPurify(midas.frontend.EquipmentBase):
         t1 = time.time()
 
         # check if panic state
-        if self.pv['rdvar'].get() > self.panic_thresh:
-        
+        if self.pv['pt206_read'].get() > self.panic_thresh:
+
             if not self.panic_state:
-                
-                # get values before we do anything 
+
+                # get values before we do anything
                 self.fpv201_setpt = self.pv['fpv201_pos'].get()
-                self.last_output = self.pv['setvar'].get()
-                
+                self.last_output = self.pv['htr204_cur'].get()
+
                 # set the panic state, open valves and stop the heater
                 self.pv['fpv201_pos'].put(100)
-                self._ensure_set('setvar', 0)
+                self._ensure_set('htr204_cur', 0)
                 self.htr204_t0 = 0
                 self.t_panic = time.time()
                 self.panic_state = True
-                self.client.msg(f'PT206 pressure too high ({self.pv["rdvar"].get():.1f} > {self.panic_thresh})! Opening FPV201 to 100%')
+                self.client.msg(f'PT206 pressure too high ({self.pv["pt206_read"].get():.1f} > {self.panic_thresh})! Opening FPV201 to 100%')
 
         # panicking: wait at least 30 s for the pressure to go down
         elif self.panic_state and (t1 - self.t_panic) > 30:
-        
+
             # restore prev values
             self.pv['fpv201_pos'].put(self.fpv201_setpt)
-            self.pv['setvar'].put(self.last_output*0.8)
-            
+            self.pv['htr204_cur'].put(self.last_output*0.8)
+
             # stop panicking
             self.panic_state = False
             self.client.msg(f'PT206 pressure back under control! Setting FPV201 to {self.fpv201_setpt:.0f}%')
@@ -365,8 +386,8 @@ class AutoPurify(midas.frontend.EquipmentBase):
         if t1-self.t0 >= self.time_step_s and not self.panic_state:
 
             # apply control operation
-            val = self.pid(self.pv['rdvar'].get())
-            self.pv['setvar'].put(val)
+            val = self.pid(self.pv['pt206_read'].get())
+            self.pv['htr204_cur'].put(val)
 
             # new t0 and htr setpoint value to check against
             self.t0 = t1
@@ -390,7 +411,7 @@ class MyFrontend(midas.frontend.FrontendBase):
         it for final cleanup if needed.
         """
         # Set HTR204 to 0 after normal exit
-        self.equipment['AutoPurify']._ensure_set('setvar', 0)
+        self.equipment['AutoPurify']._ensure_set('htr204_cur', 0)
         self.client.msg("AutoPurify frontend stopped.")
 
 if __name__ == "__main__":
