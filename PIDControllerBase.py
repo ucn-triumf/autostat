@@ -45,6 +45,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         ("P", 1.0),
         ("I", 0.0),
         ("D", 0.0),
+        ("inverted_output", False),
         ("setpoint", 1400),
         ("time_step_s", 10),
         ("output_limit_low", 0),
@@ -123,16 +124,21 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
                               self.callback_time_step,
                               pass_changed_value_only=True)
 
+        self.client.odb_watch(f'{self.odb_settings_dir}/inverted_output',
+                              self.callback_inverted,
+                              pass_changed_value_only=True)
+
         # get epics readback variables to read and write
         # by default uses the monitor backend (desired)
         self.pv = {key: epics.PV(val) for key, val in self.EPICS_PV.items()}
 
         # setup PID controller
         # see https://simple-pid.readthedocs.io/en/latest/reference.html
+        self.inverted = -1 if self.client.odb_get(f'{self.odb_settings_dir}/inverted_output') else 0
         self.pid = PID(
-            Kp = self.client.odb_get(f'{self.odb_settings_dir}/P'), # P
-            Ki = self.client.odb_get(f'{self.odb_settings_dir}/I'), # I
-            Kd = self.client.odb_get(f'{self.odb_settings_dir}/D'), # D
+            Kp = self.client.odb_get(f'{self.odb_settings_dir}/P')*self.inverted, # P
+            Ki = self.client.odb_get(f'{self.odb_settings_dir}/I')*self.inverted, # I
+            Kd = self.client.odb_get(f'{self.odb_settings_dir}/D')*self.inverted, # D
             setpoint = self.get_limited_var('setpoint'), # target pressure
             output_limits = (self.get_limited_var('output_limit_low'),
                              self.get_limited_var('output_limit_high')),
@@ -157,15 +163,15 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
             client.msg(f'{self.name} has been disabled')
 
     def callback_P(self, client, path, idx, odb_value):
-        self.pid.Kp = odb_value
+        self.pid.Kp = odb_value*self.inverted
         client.msg(f'{self.name} P value changed to {self.pid.Kp}')
 
     def callback_I(self, client, path, idx, odb_value):
-        self.pid.Ki = odb_value
+        self.pid.Ki = odb_value*self.inverted
         client.msg(f'{self.name} I value changed to {self.pid.Ki}')
 
     def callback_D(self, client, path, idx, odb_value):
-        self.pid.Kd = odb_value
+        self.pid.Kd = odb_value*self.inverted
         client.msg(f'{self.name} D value changed to {self.pid.Kd}')
 
     def callback_setpoint(self, client, path, idx, odb_value):
@@ -199,6 +205,10 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
     def callback_time_step(self, client, path, idx, odb_value):
         self.time_step_s = self.limit_var('time_step_s', odb_value)
         client.msg(f'{self.name} time step changed to {self.time_step_s}')
+
+    def callback_inverted(self, client, path, idx, odb_value):
+        self.inverted = -1 if odb_value else 1
+        client.msg(f'{self.name} inverted output state changed to {self.inverted}')
 
     def check_device_states(self, alarm=True):
         """Check devices are set properly
@@ -305,6 +315,17 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
 
         # check that all devices are withing operating limits
         if not self.check_device_states():
+            return
+
+        # check if setpoint changed significantly between calls
+        if abs(self.pv['ctrl'].get() - self.last_setpoint) > 1:
+            msg = f'{self.EPICS_PV["ctrl"]} setpoint ({self.pv["ctrl"].get():.0f}) '+\
+                  f'does not match previously set value ({self.last_setpoint:.0f}) - disabling {self.name}'
+            self.pv['ctrl'].put(0)
+            self.last_setpoint = 0
+            self.client.trigger_internal_alarm('AutoStat', msg,
+                                               default_alarm_class='Warning')
+            self.disable()
             return
 
         # get time
