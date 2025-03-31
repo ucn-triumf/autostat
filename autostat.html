@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html class="mcss">
+<head>
+   <meta charset="UTF-8">
+   <link rel="stylesheet" href="midas.css">
+   <script src="controls.js"></script>
+   <script src="jquery.min.js"></script>
+   <script src="midas.js"></script>
+   <script src="mhttpd.js"></script>
+   <title>AutoStat</title>
+</head>
+
+<body class="mcss" onload="mhttpd_init('AutoStat')">
+
+    <!-- header and side navigation will be filled in mhttpd_start -->
+    <div id="mheader"></div>
+    <div id="msidenav"></div>
+    <div id="mmain">
+    <div id="full_div" style="display:block">
+        <section>
+                <table class="mtable">
+                    <tr>
+                        <th colspan="5" class="mtableheader">Enable AutoStat Programs</th>
+                    </tr>
+                    <tr>
+                        <td style="width: 150px;">
+                            <b>Program</b>
+                        </td>
+                        <td style="width: 100px;">
+                            <b>Controlling</b>
+                        </td>
+                        <td style="width: 100px;">
+                            <b>Target</b>
+                        </td>
+                        <td style="width: 100px;">
+                            <b>Setpoint</b>
+                        </td>
+                        <td style="width: 100px;">
+                            <b>Enabled</b>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="/Equipment/PID_TransLineTemp/Settings">PID_TransLineTemp</a>
+                        </td>
+                        <td>
+                            FPV212
+                        </td>
+                        <td>
+                            TS245
+                        </td>
+                        <td>
+                            <div name="modbvalue" data-odb-path="/Equipment/PID_TransLineTemp/Settings/setpoint" data-odb-editable="1" ></div>
+                        </td>
+                        <td>
+                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_TransLineTemp/Settings/Enabled"></input>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="/Equipment/PID_Wall2Temp/Settings">PID_Wall2Temp</a>
+                        </td>
+                        <td>
+                            FPV209
+                        </td>
+                        <td>
+                            TS351
+                        </td>
+                        <td>
+                            <div name="modbvalue" data-odb-path="/Equipment/PID_Wall2Temp/Settings/setpoint" data-odb-editable="1" ></div>
+                        </td>
+                        <td>
+                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_Wall2Temp/Settings/Enabled"></input>
+                        </td>
+                    </tr>
+                </table>
+        </section>
+        </div>
+</body>
+</html>
