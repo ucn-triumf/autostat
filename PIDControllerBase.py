@@ -145,13 +145,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         self.t0 = 0
 
         # You can set the status of the equipment (appears in the midas status page)
-        if self.is_enabled:
-            self.set_status("Running", status_color='greenLight')
-        else:
-            self.set_status("Ready, Disabled", status_color='yellowGreenLight')
-
-        # check device states
-        self.check_device_states(alarm=False)
+        self.disable()
 
     def callback_enabled(self, client, path, idx, odb_value):
         """Called when enable flag is changed"""
