@@ -151,7 +151,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
             self.set_status("Ready, Disabled", status_color='yellowGreenLight')
 
         # check device states
-        self.check_device_states()
+        self.check_device_states(alarm=False)
 
     def callback_enabled(self, client, path, idx, odb_value):
         """Called when enable flag is changed"""
@@ -206,8 +206,11 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         self.time_step_s = self.limit_var('time_step_s', odb_value)
         client.msg(f'{self.name} time step changed to {self.time_step_s}')
 
-    def check_device_states(self):
+    def check_device_states(self, alarm=True):
         """Check devices are set properly
+
+        Args:
+            alarm (bool): if true, when devices fail check raise MIDAS alarm
 
         Returns:
             bool: if true, everything is ok, else should disconnect
@@ -223,7 +226,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
             if self.pv[name].get() > lim:
                 state_ok = False
                 name_pretty = name.split("_")[0].upper()
-                self.client.msg(f'"{name_pretty}" is above threshold ({lim})',
+                self.client.msg(f'{self.name}: "{name_pretty}" is above threshold ({lim})',
                                 is_error=True)
 
         # these should be on
@@ -231,7 +234,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
             if self.pv[name].get() < lim:
                 state_ok = False
                 name_pretty = name.split("_")[0].upper()
-                self.client.msg(f'"{name_pretty}" is below threshold ({lim})',
+                self.client.msg(f'{self.name}: "{name_pretty}" is below threshold ({lim})',
                                 is_error=True)
 
         # these should be off
@@ -239,7 +242,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
             if int(self.pv[name].get()):
                 state_ok = False
                 name_pretty = name.split("_")[0].upper()
-                self.client.msg(f'"{name_pretty}" should not be in the ON state. Turn it OFF',
+                self.client.msg(f'{self.name}: "{name_pretty}" should not be in the ON state. Turn it OFF',
                                 is_error=True)
 
         # these should be on
@@ -247,15 +250,16 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
             if not int(self.pv[name].get()):
                 state_ok = False
                 name_pretty = name.split("_")[0].upper()
-                self.client.msg(f'"{name_pretty}" should not be in the OFF state. Turn it ON',
+                self.client.msg(f'{self.name}: "{name_pretty}" should not be in the OFF state. Turn it ON',
                                 is_error=True)
 
         # alarm on fail
         if not state_ok:
-            msg = f'{self.name} failed device check. See messages.'
-            self.client.trigger_internal_alarm('AutoStat', msg,
-                                               default_alarm_class='Warning')
             self.disable()
+            if alarm:
+                msg = f'{self.name} failed device check. See messages.'
+                self.client.trigger_internal_alarm('AutoStat', msg,
+                                               default_alarm_class='Warning')
 
         return state_ok
 

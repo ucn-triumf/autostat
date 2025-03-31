@@ -11,8 +11,12 @@ class MyFrontend(midas.frontend.FrontendBase):
         # You must call __init__ from the base class.
         midas.frontend.FrontendBase.__init__(self, "fe_autostat")
 
-        self.add_equipment(PIDCtrl_FPV212_TS245(self.client))
+        self.add_equipment(PIDCtrl_FPV205_TS505(self.client))
+        self.add_equipment(PIDCtrl_FPV206_TS525(self.client))
+        self.add_equipment(PIDCtrl_FPV207_TS508(self.client))
         self.add_equipment(PIDCtrl_FPV209_TS351(self.client))
+        self.add_equipment(PIDCtrl_FPV212_TS245(self.client))
+        self.add_equipment(PIDCtrl_HTR204_PT206(self.client))
         self.client.msg("AutoStat frontend initialized.")
 
     def frontend_exit(self):

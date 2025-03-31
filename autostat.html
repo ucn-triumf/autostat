@@ -39,6 +39,65 @@
                             <b>Enabled</b>
                         </td>
                     </tr>
+
+                    <!-- 4K Pot Pressure (AutoPurify) -->
+                    <tr>
+                        <td>
+                            <a href="/Equipment/PID_4KPressure/Settings">PID_4KPressure (autopurify)</a>
+                        </td>
+                        <td>
+                            HTR204
+                        </td>
+                        <td>
+                            PT206
+                        </td>
+                        <td>
+                            <div name="modbvalue" data-odb-path="/Equipment/PID_4KPressure/Settings/setpoint" data-odb-editable="1" ></div>
+                        </td>
+                        <td>
+                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_4KPressure/Settings/Enabled"></input>
+                        </td>
+                    </tr>
+
+                    <!-- 20K Shield Temperature -->
+                    <tr>
+                        <td>
+                            <a href="/Equipment/PID_20KShield/Settings">PID_20KShield</a>
+                        </td>
+                        <td>
+                            FPV205
+                        </td>
+                        <td>
+                            TS505
+                        </td>
+                        <td>
+                            <div name="modbvalue" data-odb-path="/Equipment/PID_20KShield/Settings/setpoint" data-odb-editable="1" ></div>
+                        </td>
+                        <td>
+                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_20KShield/Settings/Enabled"></input>
+                        </td>
+                    </tr>
+
+                    <!-- 100K Shield Temperature -->
+                    <tr>
+                        <td>
+                            <a href="/Equipment/PID_100KShield/Settings">PID_100KShield</a>
+                        </td>
+                        <td>
+                            FPV207
+                        </td>
+                        <td>
+                            TS508
+                        </td>
+                        <td>
+                            <div name="modbvalue" data-odb-path="/Equipment/PID_100KShield/Settings/setpoint" data-odb-editable="1" ></div>
+                        </td>
+                        <td>
+                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_100KShield/Settings/Enabled"></input>
+                        </td>
+                    </tr>
+
+                    <!-- Transfer Line Temperature -->
                     <tr>
                         <td>
                             <a href="/Equipment/PID_TransLineTemp/Settings">PID_TransLineTemp</a>
@@ -56,6 +115,8 @@
                             <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_TransLineTemp/Settings/Enabled"></input>
                         </td>
                     </tr>
+
+                    <!-- Wall 2 Temperature -->
                     <tr>
                         <td>
                             <a href="/Equipment/PID_Wall2Temp/Settings">PID_Wall2Temp</a>
@@ -73,6 +134,26 @@
                             <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_Wall2Temp/Settings/Enabled"></input>
                         </td>
                     </tr>
+
+                    <!-- East Collar Temperature -->
+                    <tr>
+                        <td>
+                            <a href="/Equipment/PID_ECollar/Settings">PID_ECollar</a>
+                        </td>
+                        <td>
+                            FPV206
+                        </td>
+                        <td>
+                            TS525
+                        </td>
+                        <td>
+                            <div name="modbvalue" data-odb-path="/Equipment/PID_ECollar/Settings/setpoint" data-odb-editable="1" ></div>
+                        </td>
+                        <td>
+                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_ECollar/Settings/Enabled"></input>
+                        </td>
+                    </tr>
+
                 </table>
         </section>
         </div>
