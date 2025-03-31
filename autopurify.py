@@ -335,6 +335,7 @@ class AutoPurify(midas.frontend.EquipmentBase):
         # exceptions to be made if in panic state
         if not self.panic_state and not self._check_device_states():
             self._ensure_set('htr204_cur', 0)
+            self.htr204_t0 = 0
             self.client.trigger_internal_alarm('AutoPurifyStop',
                 'A device state is incorrect. See messages.',
                 default_alarm_class='Warning')
@@ -346,6 +347,7 @@ class AutoPurify(midas.frontend.EquipmentBase):
             msg = f'HTR204 setpoint ({self.pv["htr204_cur"].get():.0f}) does not match '+\
                   f'previously set value ({self.htr204_t0:.0f})- stopping AutoPurify'
             self._ensure_set('htr204_cur', 0)
+            self.htr204_t0 = 0
             self.client.trigger_internal_alarm('AutoPurifyStop', msg,
                                                default_alarm_class='Warning')
             self.client.disconnect()
