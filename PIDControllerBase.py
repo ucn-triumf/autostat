@@ -134,7 +134,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
 
         # setup PID controller
         # see https://simple-pid.readthedocs.io/en/latest/reference.html
-        self.inverted = -1 if self.client.odb_get(f'{self.odb_settings_dir}/inverted_output') else 0
+        self.inverted = -1.0 if self.client.odb_get(f'{self.odb_settings_dir}/inverted_output') else 1.0
         self.pid = PID(
             Kp = self.client.odb_get(f'{self.odb_settings_dir}/P')*self.inverted, # P
             Ki = self.client.odb_get(f'{self.odb_settings_dir}/I')*self.inverted, # I
@@ -207,7 +207,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         client.msg(f'{self.name} time step changed to {self.time_step_s}')
 
     def callback_inverted(self, client, path, idx, odb_value):
-        self.inverted = -1 if odb_value else 1
+        self.inverted = -1.0 if odb_value else 1.0
         client.msg(f'{self.name} inverted output state changed to {self.inverted}')
 
     def check_device_states(self, alarm=True):
