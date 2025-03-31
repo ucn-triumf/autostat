@@ -142,6 +142,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
             )
         self.last_setpoint = self.pv['ctrl'].get()
         self.time_step_s = self.get_limited_var('time_step_s')
+        self.t0 = 0
 
         # You can set the status of the equipment (appears in the midas status page)
         if self.is_enabled:
@@ -317,6 +318,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
             # apply control operation
             val = self.pid(self.pv['target'].get())
             self.pv['ctrl'].put(val)
+            self.t0 = t1
 
             # new t0 and htr setpoint value to check against
             self.t0 = t1

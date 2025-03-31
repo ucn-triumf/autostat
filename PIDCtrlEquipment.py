@@ -28,11 +28,11 @@ class PIDCtrl_FPV212_TS245(PIDControllerBase):
     # default settings
     DEFAULT_SETTINGS = collections.OrderedDict([
         ("Enabled", False),
-        ("P", 1.0),
+        ("P", -1.0),
         ("I", 0.0),
         ("D", 0.0),
         ("setpoint", 100),
-        ("time_step_s", 250),
+        ("time_step_s", 10),
         ("output_limit_low", 0),
         ("output_limit_high", 100),
         ("proportional_on_measurement", False),
@@ -65,11 +65,11 @@ class PIDCtrl_FPV209_TS351(PIDControllerBase):
     # default settings
     DEFAULT_SETTINGS = collections.OrderedDict([
         ("Enabled", False),
-        ("P", 1.0),
+        ("P", -1.0),
         ("I", 0.0),
         ("D", 0.0),
         ("setpoint", 100),
-        ("time_step_s", 250),
+        ("time_step_s", 10),
         ("output_limit_low", 0),
         ("output_limit_high", 100),
         ("proportional_on_measurement", False),
