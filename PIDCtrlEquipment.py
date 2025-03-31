@@ -28,9 +28,10 @@ class PIDCtrl_FPV205_TS505(PIDControllerBase):
     # default settings
     DEFAULT_SETTINGS = collections.OrderedDict([
         ("Enabled", False),
-        ("P", -1.0),
+        ("P", 1.0),
         ("I", 0.0),
         ("D", 0.0),
+        ("inverted_output", True),
         ("setpoint", 20),
         ("time_step_s", 10),
         ("output_limit_low", 0),
@@ -65,9 +66,10 @@ class PIDCtrl_FPV206_TS525(PIDControllerBase):
     # default settings
     DEFAULT_SETTINGS = collections.OrderedDict([
         ("Enabled", False),
-        ("P", -1.0),
+        ("P", 1.0),
         ("I", 0.0),
         ("D", 0.0),
+        ("inverted_output", True),
         ("setpoint", 30),
         ("time_step_s", 10),
         ("output_limit_low", 0),
@@ -102,9 +104,10 @@ class PIDCtrl_FPV207_TS508(PIDControllerBase):
     # default settings
     DEFAULT_SETTINGS = collections.OrderedDict([
         ("Enabled", False),
-        ("P", -1.0),
+        ("P", 1.0),
         ("I", 0.0),
         ("D", 0.0),
+        ("inverted_output", True),
         ("setpoint", 100),
         ("time_step_s", 10),
         ("output_limit_low", 0),
@@ -139,9 +142,10 @@ class PIDCtrl_FPV209_TS351(PIDControllerBase):
     # default settings
     DEFAULT_SETTINGS = collections.OrderedDict([
         ("Enabled", False),
-        ("P", -1.0),
+        ("P", 1.0),
         ("I", 0.0),
         ("D", 0.0),
+        ("inverted_output", True),
         ("setpoint", 100),
         ("time_step_s", 10),
         ("output_limit_low", 0),
@@ -176,9 +180,10 @@ class PIDCtrl_FPV212_TS245(PIDControllerBase):
     # default settings
     DEFAULT_SETTINGS = collections.OrderedDict([
         ("Enabled", False),
-        ("P", -1.0),
+        ("P", 1.0),
         ("I", 0.0),
         ("D", 0.0),
+        ("inverted_output", True),
         ("setpoint", 100),
         ("time_step_s", 10),
         ("output_limit_low", 0),
@@ -233,6 +238,7 @@ class PIDCtrl_HTR204_PT206(PIDControllerBase):
         ("P", 0.9),
         ("I", 0.04),
         ("D", 0.0),
+        ("inverted_output", False),
         ("setpoint", 1400),
         ("pt206_pressure_high_thresh", 1480),
         ("time_step_s", 10),
@@ -281,6 +287,10 @@ class PIDCtrl_HTR204_PT206(PIDControllerBase):
     def callback_press_high_thresh(self, client, path, idx, odb_value):
         self.panic_thresh = self.limit_var('pt206_pressure_high_thresh', odb_value)
         client.msg(f'{self.name} pressure high threshold changed to {self.panic_thresh}')
+
+    def disable(self):
+        self.ensure_set('ctrl', 0)
+        super().disable()
 
     def ensure_set(self, setname, val):
         """Ensure value is set by checking the readback periodically after set
