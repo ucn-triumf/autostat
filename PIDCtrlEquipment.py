@@ -6,6 +6,7 @@ import midas.frontend
 import epics
 from PIDControllerBase import PIDControllerBase
 import time
+import numpy as np
 import collections
 
 class PIDCtrl_FPV205_TS505(PIDControllerBase):
@@ -280,8 +281,8 @@ class PIDCtrl_HTR204_PT206(PIDControllerBase):
         self.t_panic = 0 # time at which we have panicked and opened safety valve
         self.fpv201_setpt = self.pv['fpv201_pos'].get() # current setpoint of fpv201, for reset
 
-        self.client.odb_watch(f'{self.odb_settings_dir}/time_step_s',
-                              self.callback_time_step,
+        self.client.odb_watch(f'{self.odb_settings_dir}/pt206_pressure_high_thresh',
+                              self.callback_press_high_thresh,
                               pass_changed_value_only=True)
 
     def callback_press_high_thresh(self, client, path, idx, odb_value):
@@ -290,7 +291,6 @@ class PIDCtrl_HTR204_PT206(PIDControllerBase):
 
     def disable(self):
         self.ensure_set('ctrl', 0.0)
-        self.last_setpoint = 0.0
         super().disable()
 
     def ensure_set(self, setname, val):
@@ -336,15 +336,14 @@ class PIDCtrl_HTR204_PT206(PIDControllerBase):
         # exceptions to be made if in panic state
         if not self.panic_state and not self.check_device_states():
             self.ensure_set('ctrl', 0.0)
-            self.last_setpoint = 0.0
+            self.last_setpoint = np.nan
             return
 
         # check if htr setpoint changed significantly between calls
-        if abs(self.pv['ctrl'].get() - self.last_setpoint) > 1:
+        if not np.isnan(self.last_setpoint) and abs(self.pv['ctrl'].get() - self.last_setpoint) > 1:
             msg = f'HTR204 setpoint ({self.pv["ctrl"].get():.0f}) does not match '+\
                   f'previously set value ({self.last_setpoint:.0f}) - disabling {self.name}'
             self.ensure_set('ctrl', 0.0)
-            self.last_setpoint = 0.0
             self.client.trigger_internal_alarm('AutoStat', msg,
                                                default_alarm_class='Warning')
             self.disable()
@@ -365,7 +364,7 @@ class PIDCtrl_HTR204_PT206(PIDControllerBase):
                 # set the panic state, open valves and stop the heater
                 self.pv['fpv201_pos'].put(100)
                 self.ensure_set('ctrl', 0.0)
-                self.last_setpoint = 0.0
+                self.last_setpoint = np.nan
                 self.t_panic = time.time()
                 self.panic_state = True
                 self.client.msg(f'PT206 pressure too high ({self.pv["target"].get():.1f} > {self.panic_thresh})! Opening FPV201 to 100%')
