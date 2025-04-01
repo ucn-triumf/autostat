@@ -30,7 +30,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
     should also define a `poll_func` function in addition to `readout_func`.
     """
     # settable limits
-    LIMITS = {  'setpoint': (0, 1500),
+    LIMITS = {  'target_setpoint': (0, 1500),
                 'time_step_s': (0, 500),
                 'output_limit_low': (0, 1000),
                 'output_limit_high': (0, 1000)}
@@ -47,7 +47,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         ("I", 0.0),
         ("D", 0.0),
         ("inverted_output", False),
-        ("setpoint", 1400),
+        ("target_setpoint", 1400),
         ("time_step_s", 10),
         ("output_limit_low", 0),
         ("output_limit_high", 1000),
@@ -101,7 +101,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
                               self.callback_D,
                               pass_changed_value_only=True)
 
-        self.client.odb_watch(f'{self.odb_settings_dir}/setpoint',
+        self.client.odb_watch(f'{self.odb_settings_dir}/target_setpoint',
                               self.callback_setpoint,
                               pass_changed_value_only=True)
 
@@ -140,7 +140,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
             Kp = self.client.odb_get(f'{self.odb_settings_dir}/P')*self.inverted, # P
             Ki = self.client.odb_get(f'{self.odb_settings_dir}/I')*self.inverted, # I
             Kd = self.client.odb_get(f'{self.odb_settings_dir}/D')*self.inverted, # D
-            setpoint = self.get_limited_var('setpoint'), # target pressure
+            setpoint = self.get_limited_var('target_setpoint'), # target pressure
             output_limits = (self.get_limited_var('output_limit_low'),
                              self.get_limited_var('output_limit_high')),
             proportional_on_measurement = self.client.odb_get(f'{self.odb_settings_dir}/proportional_on_measurement'),
@@ -176,7 +176,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         client.msg(f'{self.name} D value changed to {self.pid.Kd}')
 
     def callback_setpoint(self, client, path, idx, odb_value):
-        self.pid.setpoint = self.limit_var('setpoint', odb_value)
+        self.pid.setpoint = self.limit_var('target_setpoint', odb_value)
         client.msg(f'{self.name} setpoint changed to {self.pid.setpoint}')
 
     def callback_prop_on_meas(self, client, path, idx, odb_value):
@@ -188,7 +188,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         client.msg(f'{self.name} differential_on_measurement changed to {self.pid.differential_on_measurement}')
 
     def callback_setpoint(self, client, path, idx, odb_value):
-        self.pid.setpoint = self.limit_var('setpoint', odb_value)
+        self.pid.setpoint = self.limit_var('target_setpoint', odb_value)
         client.msg(f'{self.name} setpoint changed to {self.pid.setpoint}')
 
     def callback_out_lim_low(self, client, path, idx, odb_value):
