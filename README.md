@@ -27,6 +27,7 @@ simple_pid
 * `I`: intregral control value
 * `D`: differential control value
 * `target_setpoint`: target for PT206 in mbar
+* `inverted_output`: if True, multiply PID by -1 before setting. Used when increasing the control variable should result in decreasing the target variable (e.g. when cooling with a flow meter).
 * `time_step_s`: duration between control operations in seconds
 * `pressure_high_thresh`: threshold pressure of PT206 in mbar, above which FPV201 opens
 * `output_limit_low`: lower bound on possible setpoint of HTR204

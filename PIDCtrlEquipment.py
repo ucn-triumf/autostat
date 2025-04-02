@@ -10,7 +10,7 @@ import numpy as np
 import collections
 
 class PIDCtrl_FPV205_TS505(PIDControllerBase):
-    """Control FPV205 in order to set TS505"""
+    """PID_20KShield. Control FPV205 in order to set TS505"""
 
     # settable limits
     LIMITS = {  'target_setpoint': (0, 350),
@@ -50,7 +50,7 @@ class PIDCtrl_FPV205_TS505(PIDControllerBase):
         super().__init__(client, 'PID_20KShield')
 
 class PIDCtrl_FPV206_TS525(PIDControllerBase):
-    """Control FPV206 in order to set TS525"""
+    """PID_ECollar. Control FPV206 in order to set TS525"""
 
     # settable limits
     LIMITS = {  'target_setpoint': (0, 350),
@@ -90,7 +90,7 @@ class PIDCtrl_FPV206_TS525(PIDControllerBase):
         super().__init__(client, 'PID_ECollar')
 
 class PIDCtrl_FPV207_TS508(PIDControllerBase):
-    """Control FPV207 in order to set TS508"""
+    """PID_100KShield. Control FPV207 in order to set TS508"""
 
     # settable limits
     LIMITS = {  'target_setpoint': (0, 350),
@@ -130,7 +130,7 @@ class PIDCtrl_FPV207_TS508(PIDControllerBase):
         super().__init__(client, 'PID_100KShield')
 
 class PIDCtrl_FPV209_TS351(PIDControllerBase):
-    """Control FPV209 in order to set TS351"""
+    """PID_Wall2Temp. Control FPV209 in order to set TS351"""
 
     # settable limits
     LIMITS = {  'target_setpoint': (0, 350),
@@ -170,7 +170,7 @@ class PIDCtrl_FPV209_TS351(PIDControllerBase):
         super().__init__(client, 'PID_Wall2Temp')
 
 class PIDCtrl_FPV212_TS245(PIDControllerBase):
-    """Control FPV212 in order to set TS245"""
+    """PID_TransLineTemp. Control FPV212 in order to set TS245"""
 
     # settable limits
     LIMITS = {  'target_setpoint': (0, 350),
@@ -193,7 +193,7 @@ class PIDCtrl_FPV212_TS245(PIDControllerBase):
         ("I", 0.0),
         ("D", 0.0),
         ("inverted_output", True),
-        ("target_setpoint", 100),
+        ("target_setpoint", 80),
         ("time_step_s", 10),
         ("output_limit_low", 0),
         ("output_limit_high", 100),
@@ -210,7 +210,7 @@ class PIDCtrl_FPV212_TS245(PIDControllerBase):
         super().__init__(client, 'PID_TransLineTemp')
 
 class PIDCtrl_HTR204_PT206(PIDControllerBase):
-    """Control HTR204 in order to set PT206"""
+    """PID_4KPressure (autopurify). Control HTR204 in order to set PT206"""
 
     # settable limits
     LIMITS = {  'target_setpoint': (0, 1500),
