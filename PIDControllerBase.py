@@ -323,7 +323,6 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         if not np.isnan(self.last_setpoint) and abs(self.pv['ctrl'].get() - self.last_setpoint) > 1:
             msg = f'{self.EPICS_PV["ctrl"]} setpoint ({self.pv["ctrl"].get():.0f}) '+\
                   f'does not match previously set value ({self.last_setpoint:.0f}) - disabling {self.name}'
-            self.pv['ctrl'].put(0)
             self.client.trigger_internal_alarm('AutoStat', msg,
                                                default_alarm_class='Warning')
             self.disable()
