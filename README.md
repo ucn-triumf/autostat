@@ -26,7 +26,7 @@ simple_pid
 | PID\_PUR\_ISO20K | HTR012 | TS513 |
 
 
-## ODB settings (/Equipment/AutoPurify/Settings)
+## ODB settings (/Equipment/XXX/Settings)
 * `P`: proportional control value
 * `I`: intregral control value
 * `D`: differential control value
