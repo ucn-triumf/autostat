@@ -20,6 +20,10 @@ simple_pid
 | PID_TransLineTemp | FPV212 | TS245 |
 | PID_Wall2Temp | FPV209 | TS351 |
 | PID_ECollar | FPV206 | TS525 |
+| PID\_PUR\_HE70K | HTR105 | TS510 |
+| PID\_PUR\_ISO70K | HTR010 | TS512 |
+| PID\_PUR\_HE20K | HTR107 | TS511 |
+| PID\_PUR\_ISO20K | HTR012 | TS513 |
 
 
 ## ODB settings (/Equipment/AutoPurify/Settings)
