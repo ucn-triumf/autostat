@@ -24,10 +24,10 @@
                     var prog_exist = rpc[0].result.status;
                     if(prog_exist == 1){
                         document.getElementById('updateStatus').innerHTML = "fe_autostat program is running";
-                        document.getElementById('updateStatus').style.color = "green";
+                        document.getElementById('updateStatus').style.background = "#65f7ae";
                     }else{
                         document.getElementById('updateStatus').innerHTML = "fe_autostat program NOT running";
-                        document.getElementById('updateStatus').style.color = "red";
+                        document.getElementById('updateStatus').style.background = "#f58282";
                     }
 
                     gStatusInflight = false; // finished async routine
@@ -56,22 +56,22 @@
                         <th colspan="5" class="mtableheader">Enable AutoStat Programs</th>
                     </tr>
                     <tr>
-                        <td colspan="5" style="text-align: center"> <div id="updateStatus"></td>
+                        <td colspan="5" style="text-align: center"> <b><div id="updateStatus"></b></td>
                     </tr>
                     <tr>
-                        <td style="width: 150px;">
+                        <td style="width: 200px;">
                             <b>Program</b>
                         </td>
-                        <td style="width: 150px;">
+                        <td style="width: 200px;">
                             <b>Controlling</b>
                         </td>
                         <td style="width: 200px;">
                             <b>Target</b>
                         </td>
-                        <td style="width: 200px;">
+                        <td style="width: 100px;">
                             <b>Target Setpoint</b>
                         </td>
-                        <td style="width: 80px;">
+                        <td style="width: 100px;">
                             <b>Enabled</b>
                         </td>
                     </tr>
@@ -193,6 +193,23 @@
                     <!-- Purifier Heaters -->
                     <tr>
                         <td colspan="5" style="text-align: center; background-color:#97c7ef; color:#ffffff"> <b>Purifier Heaters</b></td>
+                    </tr>
+                    <tr>
+                        <td style="width: 200px;">
+                            <b>Program</b>
+                        </td>
+                        <td style="width: 200px;">
+                            <b>Controlling</b>
+                        </td>
+                        <td style="width: 200px;">
+                            <b>Target</b>
+                        </td>
+                        <td style="width: 100px;">
+                            <b>Target Setpoint</b>
+                        </td>
+                        <td style="width: 100px;">
+                            <b>Enabled</b>
+                        </td>
                     </tr>
 
                     <!-- Purifier 70K He3 HTR-->                    
