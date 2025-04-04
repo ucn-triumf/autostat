@@ -403,3 +403,4 @@ class PIDCtrl_HTR204_PT206(PIDControllerBase):
             # new t0 and htr setpoint value to check against
             self.t0 = t1
             self.last_setpoint = val
+
