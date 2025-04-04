@@ -321,7 +321,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
 
         # check if setpoint changed significantly between calls
         if not np.isnan(self.last_setpoint) and abs(self.pv['ctrl'].get() - self.last_setpoint) > 1:
-            msg = f'{self.EPICS_PV["ctrl"]} setpoint ({self.pv["ctrl"].get():.0f}) '+\
+            msg = f'"{self.EPICS_PV["ctrl"]}" setpoint ({self.pv["ctrl"].get():.0f}) '+\
                   f'does not match previously set value ({self.last_setpoint:.0f}) - disabling {self.name}'
             self.client.trigger_internal_alarm('AutoStat', msg,
                                                default_alarm_class='Warning')
@@ -342,3 +342,54 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
             # new t0 and htr setpoint value to check against
             self.t0 = t1
             self.last_setpoint = val
+            
+            
+class PIDControllerBase_ZeroOnDisable(PIDControllerBase):
+    """Same as PIDControllerBase, but sets ctrl variable to zero upon self disable"""
+    
+    def disable(self):
+        self.pv['ctrl'].put(0.0)
+        super().disable()
+
+    def readout_func(self):
+        """
+        For a periodic equipment, this function will be called periodically
+        (every 100ms in this case). It should return either a `cdms.event.Event`
+        or None (if we shouldn't write an event).
+        """
+
+        # don't run if not enabled
+        if not self.is_enabled:
+            return
+
+        # check that all devices are withing operating limits
+        if not self.check_device_states():
+            self.pv['ctrl'].put(0.0)
+            self.last_setpoint = np.nan
+            return
+
+        # check if setpoint changed significantly between calls
+        if not np.isnan(self.last_setpoint) and abs(self.pv['ctrl'].get() - self.last_setpoint) > 1:
+            msg = f'"{self.EPICS_PV["ctrl"]}" setpoint ({self.pv["ctrl"].get():.0f}) '+\
+                  f'does not match previously set value ({self.last_setpoint:.0f}) - disabling {self.name}'
+            self.client.trigger_internal_alarm('AutoStat', msg,
+                                               default_alarm_class='Warning')
+            self.pv['ctrl'].put(0.0)
+            self.disable()
+            return
+
+        # get time
+        t1 = time.time()
+
+        # new control value
+        if t1-self.t0 >= self.time_step_s:
+
+            # apply control operation
+            val = self.pid(self.pv['target'].get())
+            self.pv['ctrl'].put(val)
+            self.t0 = t1
+
+            # new t0 and htr setpoint value to check against
+            self.t0 = t1
+            self.last_setpoint = val
+
