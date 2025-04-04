@@ -21,10 +21,10 @@ class MyFrontend(midas.frontend.FrontendBase):
         self.add_equipment(PIDCtrlEquipment.PIDCtrl_HTR204_PT206(self.client))
         
         # from PIDCtrlPurifier
-#        self.add_equipment(PIDCtrlPurifier.PIDCtrl_HTR105_TS510(self.client))
-#        self.add_equipment(PIDCtrlPurifier.PIDCtrl_HTR010_TS512(self.client))
-#        self.add_equipment(PIDCtrlPurifier.PIDCtrl_HTR107_TS511(self.client))
-#        self.add_equipment(PIDCtrlPurifier.PIDCtrl_HTR012_TS513(self.client))     
+        self.add_equipment(PIDCtrlPurifier.PIDCtrl_HTR105_TS510(self.client))
+        self.add_equipment(PIDCtrlPurifier.PIDCtrl_HTR010_TS512(self.client))
+        self.add_equipment(PIDCtrlPurifier.PIDCtrl_HTR107_TS511(self.client))
+        self.add_equipment(PIDCtrlPurifier.PIDCtrl_HTR012_TS513(self.client))     
         
         self.client.msg("AutoStat frontend initialized.")
 
