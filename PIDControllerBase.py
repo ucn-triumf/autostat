@@ -146,7 +146,19 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         if odb_value:
             self.set_status("Running", status_color='greenLight')
             self.reset_pid()
-            client.msg(f'{self.name} has been enabled')
+
+            settings_list = [f'P={self.pid.Kp}',
+                            f'I={self.pid.Ki}',
+                            f'D={self.pid.Kd}',
+                            f'setpoint={self.pid.setpoint}',
+                            f'limits={self.pid.output_limits}',
+                            f'proportional_on_measurement={self.pid.proportional_on_measurement}',
+                            f'differential_on_measurement={self.pid.differential_on_measurement}',
+                            f'last_setpoint={self.last_setpoint}',
+                            f'time_step_s={self.time_step_s}',
+                            f'inverted={self.inverted == -1}',
+                            ]
+            client.msg(f'{self.name} has been enabled with settings: '+', '.join(settings_list))
         else:
             self.set_status("Ready, Disabled", status_color='yellowGreenLight')
             client.msg(f'{self.name} has been disabled')
@@ -218,32 +230,28 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         for name, lim in self.DEVICE_THRESH_OFF.items():
             if self.pv[name].get() > lim:
                 state_ok = False
-                name_pretty = name.split("_")[0].upper()
-                self.client.msg(f'{self.name}: "{name_pretty}" is above threshold ({lim})',
+                self.client.msg(f'{self.name}: "{self.EPICS_PV[name]}" is above threshold ({lim})',
                                 is_error=True)
 
         # these should be on
         for name, lim in self.DEVICE_THRESH_ON.items():
             if self.pv[name].get() < lim:
                 state_ok = False
-                name_pretty = name.split("_")[0].upper()
-                self.client.msg(f'{self.name}: "{name_pretty}" is below threshold ({lim})',
+                self.client.msg(f'{self.name}: "{self.EPICS_PV[name]}" is below threshold ({lim})',
                                 is_error=True)
 
         # these should be off
         for name in self.DEVICE_STATE_OFF:
             if int(self.pv[name].get()):
                 state_ok = False
-                name_pretty = name.split("_")[0].upper()
-                self.client.msg(f'{self.name}: "{name_pretty}" should not be in the ON state. Turn it OFF',
+                self.client.msg(f'{self.name}: "{self.EPICS_PV[name]}" should not be in the ON state. Turn it OFF',
                                 is_error=True)
 
         # these should be on
         for name in self.DEVICE_STATE_ON:
             if not int(self.pv[name].get()):
                 state_ok = False
-                name_pretty = name.split("_")[0].upper()
-                self.client.msg(f'{self.name}: "{name_pretty}" should not be in the OFF state. Turn it ON',
+                self.client.msg(f'{self.name}: "{self.EPICS_PV[name]}" should not be in the OFF state. Turn it ON',
                                 is_error=True)
 
         # alarm on fail
@@ -353,6 +361,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
             )
         self.last_setpoint = self.pv['ctrl'].get()
         self.time_step_s = self.get_limited_var('time_step_s')
+
 class PIDControllerBase_ZeroOnDisable(PIDControllerBase):
     """Same as PIDControllerBase, but sets ctrl variable to zero upon self disable"""
 
