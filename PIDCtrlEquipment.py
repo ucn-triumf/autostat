@@ -270,7 +270,7 @@ class PIDCtrl_HTR204_PT206(PIDControllerBase):
                         'fpv207_read': 10,
                         'fpv208_read': 10,
                         'fpv211_read': 2,
-                        'fpv212_read': 50}
+                        'fpv212_read': 101}
 
     # readbacks should be above a threshold value (float)
     DEVICE_THRESH_ON = {'fpv203_read':80,

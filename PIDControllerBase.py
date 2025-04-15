@@ -135,20 +135,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
 
         # setup PID controller
         # see https://simple-pid.readthedocs.io/en/latest/reference.html
-        self.inverted = -1.0 if self.client.odb_get(f'{self.odb_settings_dir}/inverted_output') else 1.0
-        self.pid = PID(
-            Kp = self.client.odb_get(f'{self.odb_settings_dir}/P')*self.inverted, # P
-            Ki = self.client.odb_get(f'{self.odb_settings_dir}/I')*self.inverted, # I
-            Kd = self.client.odb_get(f'{self.odb_settings_dir}/D')*self.inverted, # D
-            setpoint = self.get_limited_var('target_setpoint'), # target pressure
-            output_limits = (self.get_limited_var('output_limit_low'),
-                             self.get_limited_var('output_limit_high')),
-            proportional_on_measurement = self.client.odb_get(f'{self.odb_settings_dir}/proportional_on_measurement'),
-            differential_on_measurement = self.client.odb_get(f'{self.odb_settings_dir}/differential_on_measurement'),
-            starting_output = self.pv['ctrl'].get() # The starting point for the PID’s output.
-            )
-        self.last_setpoint = self.pv['ctrl'].get()
-        self.time_step_s = self.get_limited_var('time_step_s')
+        self.reset_pid()
         self.t0 = 0
 
         # You can set the status of the equipment (appears in the midas status page)
@@ -158,6 +145,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         """Called when enable flag is changed"""
         if odb_value:
             self.set_status("Running", status_color='greenLight')
+            self.reset_pid()
             client.msg(f'{self.name} has been enabled')
         else:
             self.set_status("Ready, Disabled", status_color='yellowGreenLight')
@@ -342,11 +330,32 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
             # new t0 and htr setpoint value to check against
             self.t0 = t1
             self.last_setpoint = val
-            
-            
+
+    def reset_pid(self):
+        """Reset PID internal values and reset parameters according to ODB values"""
+        self.inverted = -1.0 if self.client.odb_get(f'{self.odb_settings_dir}/inverted_output') else 1.0
+
+        # reset internal values as well as derivative and integral history
+        if hasattr(self, 'pid'):
+            self.pid.reset()
+
+        # make new PID object
+        self.pid = PID(
+            Kp = self.client.odb_get(f'{self.odb_settings_dir}/P')*self.inverted, # P
+            Ki = self.client.odb_get(f'{self.odb_settings_dir}/I')*self.inverted, # I
+            Kd = self.client.odb_get(f'{self.odb_settings_dir}/D')*self.inverted, # D
+            setpoint = self.get_limited_var('target_setpoint'), # target pressure
+            output_limits = (self.get_limited_var('output_limit_low'),
+                             self.get_limited_var('output_limit_high')),
+            proportional_on_measurement = self.client.odb_get(f'{self.odb_settings_dir}/proportional_on_measurement'),
+            differential_on_measurement = self.client.odb_get(f'{self.odb_settings_dir}/differential_on_measurement'),
+            starting_output = self.pv['ctrl'].get() # The starting point for the PID’s output.
+            )
+        self.last_setpoint = self.pv['ctrl'].get()
+        self.time_step_s = self.get_limited_var('time_step_s')
 class PIDControllerBase_ZeroOnDisable(PIDControllerBase):
     """Same as PIDControllerBase, but sets ctrl variable to zero upon self disable"""
-    
+
     def disable(self):
         self.pv['ctrl'].put(0.0)
         super().disable()
@@ -364,8 +373,7 @@ class PIDControllerBase_ZeroOnDisable(PIDControllerBase):
 
         # check that all devices are withing operating limits
         if not self.check_device_states():
-            self.pv['ctrl'].put(0.0)
-            self.last_setpoint = np.nan
+            self.disable()
             return
 
         # check if setpoint changed significantly between calls
@@ -374,7 +382,6 @@ class PIDControllerBase_ZeroOnDisable(PIDControllerBase):
                   f'does not match previously set value ({self.last_setpoint:.0f}) - disabling {self.name}'
             self.client.trigger_internal_alarm('AutoStat', msg,
                                                default_alarm_class='Warning')
-            self.pv['ctrl'].put(0.0)
             self.disable()
             return
 
