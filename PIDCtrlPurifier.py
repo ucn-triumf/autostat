@@ -20,7 +20,7 @@ class PIDCtrl_HTR105_TS510(PIDControllerBase_ZeroOnDisable):
     EPICS_PV = {'ctrl':             'UCN2:HE3:HTR105:CUR', # write access
                 'target':           'UCN2:CRY:TS510:RDTEMPK',
                 'htr_staton':       'UCN2:HE3:HTR105:STATON',
-                'htr_statloc':      'UCN2:HE3:HTR105:STATLOC',
+                'htr_auto':         'UCN2:HE3:HTR105:STAT.B8',
                 }
 
     # default settings
@@ -48,7 +48,7 @@ class PIDCtrl_HTR105_TS510(PIDControllerBase_ZeroOnDisable):
     DEVICE_THRESH_ON = {}
 
     # the state of these devices should be off (boolean 0)
-    DEVICE_STATE_OFF = ['htr_statloc']
+    DEVICE_STATE_OFF = ['htr_auto']
 
     # the state of these devices should be on (boolean 1)
     DEVICE_STATE_ON = ['htr_staton']
@@ -72,7 +72,7 @@ class PIDCtrl_HTR010_TS512(PIDControllerBase_ZeroOnDisable):
     EPICS_PV = {'ctrl':             'UCN2:ISO:HTR010:CUR', # write access
                 'target':           'UCN2:CRY:TS512:RDTEMPK',
                 'htr_staton':       'UCN2:ISO:HTR010:STATON',
-                'htr_statloc':      'UCN2:ISO:HTR010:STATLOC',
+                'htr_auto':         'UCN2:ISO:HTR010:STAT.B8',
                 }
 
     # default settings
@@ -100,7 +100,7 @@ class PIDCtrl_HTR010_TS512(PIDControllerBase_ZeroOnDisable):
     DEVICE_THRESH_ON = {}
 
     # the state of these devices should be off (boolean 0)
-    DEVICE_STATE_OFF = ['htr_statloc']
+    DEVICE_STATE_OFF = ['htr_auto']
 
     # the state of these devices should be on (boolean 1)
     DEVICE_STATE_ON = ['htr_staton']
@@ -124,7 +124,7 @@ class PIDCtrl_HTR107_TS511(PIDControllerBase_ZeroOnDisable):
     EPICS_PV = {'ctrl':             'UCN2:HE3:HTR107:CUR', # write access
                 'target':           'UCN2:CRY:TS511:RDTEMPK',
                 'htr_staton':       'UCN2:HE3:HTR107:STATON',
-                'htr_statloc':      'UCN2:HE3:HTR107:STATLOC',
+                'htr_auto':         'UCN2:HE3:HTR107:STAT.B8',
                 }
 
     # default settings
@@ -152,7 +152,7 @@ class PIDCtrl_HTR107_TS511(PIDControllerBase_ZeroOnDisable):
     DEVICE_THRESH_ON = {}
 
     # the state of these devices should be off (boolean 0)
-    DEVICE_STATE_OFF = ['htr_statloc']
+    DEVICE_STATE_OFF = ['htr_auto']
 
     # the state of these devices should be on (boolean 1)
     DEVICE_STATE_ON = ['htr_staton']
@@ -176,7 +176,7 @@ class PIDCtrl_HTR012_TS513(PIDControllerBase_ZeroOnDisable):
     EPICS_PV = {'ctrl':             'UCN2:ISO:HTR012:CUR', # write access
                 'target':           'UCN2:CRY:TS513:RDTEMPK',
                 'htr_staton':       'UCN2:ISO:HTR012:STATON',
-                'htr_statloc':      'UCN2:ISO:HTR012:STATLOC',
+                'htr_auto':         'UCN2:ISO:HTR012:STAT.B8',
                 }
 
     # default settings
@@ -204,7 +204,7 @@ class PIDCtrl_HTR012_TS513(PIDControllerBase_ZeroOnDisable):
     DEVICE_THRESH_ON = {}
 
     # the state of these devices should be off (boolean 0)
-    DEVICE_STATE_OFF = ['htr_statloc']
+    DEVICE_STATE_OFF = ['htr_auto']
 
     # the state of these devices should be on (boolean 1)
     DEVICE_STATE_ON = ['htr_staton']
