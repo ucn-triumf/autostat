@@ -130,6 +130,10 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
                               self.callback_inverted,
                               pass_changed_value_only=True)
 
+        self.client.odb_watch(f'{self.odb_settings_dir}/target_timeout_s',
+                              self.callback_timeout,
+                              pass_changed_value_only=True)
+
         # get epics readback variables to read and write
         # by default uses the monitor backend (desired)
         self.pv = {key: epics.PV(val) for key, val in self.EPICS_PV.items()}
@@ -216,6 +220,10 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
     def callback_inverted(self, client, path, idx, odb_value):
         self.inverted = -1.0 if odb_value else 1.0
         client.msg(f'{self.name} inverted output state changed to {self.inverted}')
+
+    def callback_timeout(self, client, path, idx, odb_value):
+        self.target_timeout_s = odb_value
+        client.msg(f'{self.name} target timeout changed to {self.target_timeout_s} seconds')
 
     def check_device_states(self, alarm=True):
         """Check devices are set properly
@@ -343,7 +351,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
 
         # target has not been updated past the timeout duration
         elif (self.target_timeout_s > 0) and (t1 - self.t_target_last > self.target_timeout_s):
-            msg = f'"{self.EPICS_PV["target"]}" timeout! Value read back has been {target_val} for the last {t1 - self.t_target_last} seconds'
+            msg = f'"{self.EPICS_PV["target"]}" timeout! Value read back has been {target_val} for the last {int(t1 - self.t_target_last)} seconds'
             self.client.trigger_internal_alarm('AutoStat', f'"{self.EPICS_PV["target"]}" timeout',
                                                default_alarm_class='Warning')
             self.client.msg(msg)
