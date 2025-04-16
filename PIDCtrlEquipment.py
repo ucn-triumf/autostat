@@ -39,6 +39,7 @@ class PIDCtrl_FPV205_TS505(PIDControllerBase):
         ("output_limit_high", 100),
         ("proportional_on_measurement", False),
         ("differential_on_measurement", False),
+        ("target_timeout_s", 30),
         ("control_pv", EPICS_PV['ctrl']),
         ("target_pv", EPICS_PV['target']),
     ])
@@ -79,6 +80,7 @@ class PIDCtrl_FPV206_TS525(PIDControllerBase):
         ("output_limit_high", 100),
         ("proportional_on_measurement", False),
         ("differential_on_measurement", False),
+        ("target_timeout_s", 30),
         ("control_pv", EPICS_PV['ctrl']),
         ("target_pv", EPICS_PV['target']),
     ])
@@ -119,6 +121,7 @@ class PIDCtrl_FPV207_TS508(PIDControllerBase):
         ("output_limit_high", 100),
         ("proportional_on_measurement", False),
         ("differential_on_measurement", False),
+        ("target_timeout_s", 30),
         ("control_pv", EPICS_PV['ctrl']),
         ("target_pv", EPICS_PV['target']),
     ])
@@ -159,6 +162,7 @@ class PIDCtrl_FPV209_TS351(PIDControllerBase):
         ("output_limit_high", 100),
         ("proportional_on_measurement", False),
         ("differential_on_measurement", False),
+        ("target_timeout_s", 30),
         ("control_pv", EPICS_PV['ctrl']),
         ("target_pv", EPICS_PV['target']),
     ])
@@ -199,6 +203,7 @@ class PIDCtrl_FPV212_TS245(PIDControllerBase):
         ("output_limit_high", 100),
         ("proportional_on_measurement", False),
         ("differential_on_measurement", False),
+        ("target_timeout_s", 30),
         ("control_pv", EPICS_PV['ctrl']),
         ("target_pv", EPICS_PV['target']),
     ])
@@ -257,6 +262,7 @@ class PIDCtrl_HTR204_PT206(PIDControllerBase):
         ("output_limit_high", 1000),
         ("proportional_on_measurement", False),
         ("differential_on_measurement", False),
+        ("target_timeout_s", 30),
         ("control_pv", EPICS_PV['ctrl']),
         ("target_pv", EPICS_PV['target']),
     ])
@@ -364,8 +370,24 @@ class PIDCtrl_HTR204_PT206(PIDControllerBase):
         # get time
         t1 = time.time()
 
+        # check if target is updating
+        target_val = self.pv['target'].get()
+
+        # target is updating, update saved values
+        if self.target_last != target_val:
+            self.target_last = target_val
+            self.t_target_last = t1
+
+        # target has not been updated past the timeout duration
+        elif (self.target_timeout_s > 0) and (t1 - self.t_target_last > self.target_timeout_s):
+            msg = f'"{self.EPICS_PV["target"]}" timeout! Value read back has been {target_val} for the last {t1 - self.t_target_last} seconds'
+            self.client.trigger_internal_alarm('AutoStat', f'"{self.EPICS_PV["target"]}" timeout',
+                                               default_alarm_class='Warning')
+            self.client.msg(msg)
+            self.disable()
+
         # check if panic state
-        if self.pv['target'].get() > self.panic_thresh:
+        if target_val > self.panic_thresh:
 
             if not self.panic_state:
 
@@ -379,7 +401,7 @@ class PIDCtrl_HTR204_PT206(PIDControllerBase):
                 self.last_setpoint = np.nan
                 self.t_panic = time.time()
                 self.panic_state = True
-                self.client.msg(f'PT206 pressure too high ({self.pv["target"].get():.1f} > {self.panic_thresh})! Opening FPV201 to 100%')
+                self.client.msg(f'PT206 pressure too high ({target_val:.1f} > {self.panic_thresh})! Opening FPV201 to 100%')
 
         # panicking: wait at least 30 s for the pressure to go down
         elif self.panic_state and (t1 - self.t_panic) > 30:
@@ -397,7 +419,7 @@ class PIDCtrl_HTR204_PT206(PIDControllerBase):
         if t1-self.t0 >= self.time_step_s and not self.panic_state:
 
             # apply control operation
-            val = self.pid(self.pv['target'].get())
+            val = self.pid(target_val)
             self.pv['ctrl'].put(val)
 
             # new t0 and htr setpoint value to check against

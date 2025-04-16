@@ -53,6 +53,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         ("output_limit_high", 1000),
         ("proportional_on_measurement", False),
         ("differential_on_measurement", False),
+        ("target_timeout_s", 30),
     ])
 
     # readbacks which should be below a threshold value (float)
@@ -136,7 +137,11 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         # setup PID controller
         # see https://simple-pid.readthedocs.io/en/latest/reference.html
         self.reset_pid()
-        self.t0 = 0
+        self.t0 = 0 # time of last setpoint change
+
+        # setup checking readback functionality
+        self.t_target_last = time.time()     # time of last change
+        self.target_last = self.pv['target'].get() # value of last target readback
 
         # You can set the status of the equipment (appears in the midas status page)
         self.disable()
@@ -161,6 +166,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
             client.msg(f'{self.name} has been enabled with settings: '+', '.join(settings_list))
         else:
             self.set_status("Ready, Disabled", status_color='yellowGreenLight')
+            self.last_setpoint = np.nan
             client.msg(f'{self.name} has been disabled')
 
     def callback_P(self, client, path, idx, odb_value):
@@ -327,11 +333,27 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         # get time
         t1 = time.time()
 
+        # check if target is updating
+        target_val = self.pv['target'].get()
+
+        # target is updating, update saved values
+        if self.target_last != target_val:
+            self.target_last = target_val
+            self.t_target_last = t1
+
+        # target has not been updated past the timeout duration
+        elif (self.target_timeout_s > 0) and (t1 - self.t_target_last > self.target_timeout_s):
+            msg = f'"{self.EPICS_PV["target"]}" timeout! Value read back has been {target_val} for the last {t1 - self.t_target_last} seconds'
+            self.client.trigger_internal_alarm('AutoStat', f'"{self.EPICS_PV["target"]}" timeout',
+                                               default_alarm_class='Warning')
+            self.client.msg(msg)
+            self.disable()
+
         # new control value
         if t1-self.t0 >= self.time_step_s:
 
             # apply control operation
-            val = self.pid(self.pv['target'].get())
+            val = self.pid(target_val)
             self.pv['ctrl'].put(val)
             self.t0 = t1
 
@@ -361,6 +383,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
             )
         self.last_setpoint = self.pv['ctrl'].get()
         self.time_step_s = self.get_limited_var('time_step_s')
+        self.target_timeout_s = self.client.odb_get(f'{self.odb_settings_dir}/target_timeout_s')
 
 class PIDControllerBase_ZeroOnDisable(PIDControllerBase):
     """Same as PIDControllerBase, but sets ctrl variable to zero upon self disable"""
@@ -397,11 +420,27 @@ class PIDControllerBase_ZeroOnDisable(PIDControllerBase):
         # get time
         t1 = time.time()
 
+        # check if target is updating
+        target_val = self.pv['target'].get()
+
+        # target is updating, update saved values
+        if self.target_last != target_val:
+            self.target_last = target_val
+            self.t_target_last = t1
+
+        # target has not been updated past the timeout duration
+        elif t1 - self.t_target_last > self.target_timeout_s:
+            msg = f'"{self.EPICS_PV["target"]}" timeout! Value read back has been {target_val} for the last {t1 - self.t_target_last} seconds'
+            self.client.trigger_internal_alarm('AutoStat', f'"{self.EPICS_PV["target"]}" timeout',
+                                               default_alarm_class='Warning')
+            self.client.msg(msg)
+            self.disable()
+
         # new control value
         if t1-self.t0 >= self.time_step_s:
 
             # apply control operation
-            val = self.pid(self.pv['target'].get())
+            val = self.pid(target_val)
             self.pv['ctrl'].put(val)
             self.t0 = t1
 

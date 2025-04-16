@@ -20,6 +20,7 @@ class PIDCtrl_HTR105_TS510(PIDControllerBase_ZeroOnDisable):
     EPICS_PV = {'ctrl':             'UCN2:HE3:HTR105:CUR', # write access
                 'target':           'UCN2:CRY:TS510:RDTEMPK',
                 'htr_staton':       'UCN2:HE3:HTR105:STATON',
+                'htr_statloc':      'UCN2:HE3:HTR105:STATLOC',
                 }
 
     # default settings
@@ -35,6 +36,7 @@ class PIDCtrl_HTR105_TS510(PIDControllerBase_ZeroOnDisable):
         ("output_limit_high", 1480),
         ("proportional_on_measurement", False),
         ("differential_on_measurement", False),
+        ("target_timeout_s", 30),
         ("control_pv", EPICS_PV['ctrl']),
         ("target_pv", EPICS_PV['target']),
     ])
@@ -46,14 +48,14 @@ class PIDCtrl_HTR105_TS510(PIDControllerBase_ZeroOnDisable):
     DEVICE_THRESH_ON = {}
 
     # the state of these devices should be off (boolean 0)
-    DEVICE_STATE_OFF = []
+    DEVICE_STATE_OFF = ['htr_statloc']
 
     # the state of these devices should be on (boolean 1)
     DEVICE_STATE_ON = ['htr_staton']
 
     def __init__(self, client):
         super().__init__(client, 'PID_PUR_HE70K')
-        
+
 class PIDCtrl_HTR010_TS512(PIDControllerBase_ZeroOnDisable):
     """PID_PUR_ISO70K. Control purifier HTR010 in order to set TS512"""
 
@@ -70,6 +72,7 @@ class PIDCtrl_HTR010_TS512(PIDControllerBase_ZeroOnDisable):
     EPICS_PV = {'ctrl':             'UCN2:ISO:HTR010:CUR', # write access
                 'target':           'UCN2:CRY:TS512:RDTEMPK',
                 'htr_staton':       'UCN2:ISO:HTR010:STATON',
+                'htr_statloc':      'UCN2:ISO:HTR010:STATLOC',
                 }
 
     # default settings
@@ -85,6 +88,7 @@ class PIDCtrl_HTR010_TS512(PIDControllerBase_ZeroOnDisable):
         ("output_limit_high", 1480),
         ("proportional_on_measurement", False),
         ("differential_on_measurement", False),
+        ("target_timeout_s", 30),
         ("control_pv", EPICS_PV['ctrl']),
         ("target_pv", EPICS_PV['target']),
     ])
@@ -96,14 +100,14 @@ class PIDCtrl_HTR010_TS512(PIDControllerBase_ZeroOnDisable):
     DEVICE_THRESH_ON = {}
 
     # the state of these devices should be off (boolean 0)
-    DEVICE_STATE_OFF = []
+    DEVICE_STATE_OFF = ['htr_statloc']
 
     # the state of these devices should be on (boolean 1)
     DEVICE_STATE_ON = ['htr_staton']
 
     def __init__(self, client):
-        super().__init__(client, 'PID_PUR_ISO70K')        
-        
+        super().__init__(client, 'PID_PUR_ISO70K')
+
 class PIDCtrl_HTR107_TS511(PIDControllerBase_ZeroOnDisable):
     """PID_PUR_HE20K. Control purifier HTR107 in order to set TS511"""
 
@@ -120,6 +124,7 @@ class PIDCtrl_HTR107_TS511(PIDControllerBase_ZeroOnDisable):
     EPICS_PV = {'ctrl':             'UCN2:HE3:HTR107:CUR', # write access
                 'target':           'UCN2:CRY:TS511:RDTEMPK',
                 'htr_staton':       'UCN2:HE3:HTR107:STATON',
+                'htr_statloc':      'UCN2:HE3:HTR107:STATLOC',
                 }
 
     # default settings
@@ -135,6 +140,7 @@ class PIDCtrl_HTR107_TS511(PIDControllerBase_ZeroOnDisable):
         ("output_limit_high", 1480),
         ("proportional_on_measurement", False),
         ("differential_on_measurement", False),
+        ("target_timeout_s", 30),
         ("control_pv", EPICS_PV['ctrl']),
         ("target_pv", EPICS_PV['target']),
     ])
@@ -146,14 +152,14 @@ class PIDCtrl_HTR107_TS511(PIDControllerBase_ZeroOnDisable):
     DEVICE_THRESH_ON = {}
 
     # the state of these devices should be off (boolean 0)
-    DEVICE_STATE_OFF = []
+    DEVICE_STATE_OFF = ['htr_statloc']
 
     # the state of these devices should be on (boolean 1)
     DEVICE_STATE_ON = ['htr_staton']
 
     def __init__(self, client):
-        super().__init__(client, 'PID_PUR_HE20K')   
-        
+        super().__init__(client, 'PID_PUR_HE20K')
+
 class PIDCtrl_HTR012_TS513(PIDControllerBase_ZeroOnDisable):
     """PID_PUR_ISO20K. Control purifier HTR012 in order to set TS513"""
 
@@ -170,6 +176,7 @@ class PIDCtrl_HTR012_TS513(PIDControllerBase_ZeroOnDisable):
     EPICS_PV = {'ctrl':             'UCN2:ISO:HTR012:CUR', # write access
                 'target':           'UCN2:CRY:TS513:RDTEMPK',
                 'htr_staton':       'UCN2:ISO:HTR012:STATON',
+                'htr_statloc':      'UCN2:ISO:HTR012:STATLOC',
                 }
 
     # default settings
@@ -185,6 +192,7 @@ class PIDCtrl_HTR012_TS513(PIDControllerBase_ZeroOnDisable):
         ("output_limit_high", 1480),
         ("proportional_on_measurement", False),
         ("differential_on_measurement", False),
+        ("target_timeout_s", 30),
         ("control_pv", EPICS_PV['ctrl']),
         ("target_pv", EPICS_PV['target']),
     ])
@@ -196,11 +204,11 @@ class PIDCtrl_HTR012_TS513(PIDControllerBase_ZeroOnDisable):
     DEVICE_THRESH_ON = {}
 
     # the state of these devices should be off (boolean 0)
-    DEVICE_STATE_OFF = []
+    DEVICE_STATE_OFF = ['htr_statloc']
 
     # the state of these devices should be on (boolean 1)
     DEVICE_STATE_ON = ['htr_staton']
 
     def __init__(self, client):
-        super().__init__(client, 'PID_PUR_ISO20K')  
-        
+        super().__init__(client, 'PID_PUR_ISO20K')
+
