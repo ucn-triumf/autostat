@@ -38,7 +38,8 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
     # devices/indicators from epics to monitor or write to
     # ctrl: the device to control directly
     # target: the device whose value should be approaching the setpoint
-    EPICS_PV = {}
+    EPICS_PV = {'ctrl':None,
+                'target':None}
 
     # default settings
     DEFAULT_SETTINGS = collections.OrderedDict([
@@ -54,6 +55,8 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         ("proportional_on_measurement", False),
         ("differential_on_measurement", False),
         ("target_timeout_s", 30),
+        ("control_pv", EPICS_PV['ctrl']),
+        ("target_pv", EPICS_PV['target']),
     ])
 
     # readbacks which should be below a threshold value (float)
@@ -134,6 +137,14 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
                               self.callback_timeout,
                               pass_changed_value_only=True)
 
+        self.client.odb_watch(f'{self.odb_settings_dir}/control_pv',
+                              self.callback_control_pv,
+                              pass_changed_value_only=True)
+
+        self.client.odb_watch(f'{self.odb_settings_dir}/target_pv',
+                              self.callback_target_pv,
+                              pass_changed_value_only=True)
+
         # get epics readback variables to read and write
         # by default uses the monitor backend (desired)
         self.pv = {key: epics.PV(val) for key, val in self.EPICS_PV.items()}
@@ -148,7 +159,8 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         self.target_last = self.pv['target'].get() # value of last target readback
 
         # You can set the status of the equipment (appears in the midas status page)
-        self.disable()
+        if self.is_enabled:
+            self.disable()
 
     def callback_enabled(self, client, path, idx, odb_value):
         """Called when enable flag is changed"""
@@ -224,6 +236,16 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
     def callback_timeout(self, client, path, idx, odb_value):
         self.target_timeout_s = odb_value
         client.msg(f'{self.name} target timeout changed to {self.target_timeout_s} seconds')
+
+    def callback_control_pv(self, client, path, idx, odb_value):
+        if client.odb_get(self.odb_settings_dir + '/control_pv') != self.EPICS_PV['ctrl']:
+            client.odb_set(self.odb_settings_dir + '/control_pv', self.EPICS_PV['ctrl'])
+            client.msg(f'{self.name} control_pv is read-only')
+
+    def callback_target_pv(self, client, path, idx, odb_value):
+        if client.odb_get(self.odb_settings_dir + '/target_pv') != self.EPICS_PV['target']:
+            client.odb_set(self.odb_settings_dir + '/target_pv', self.EPICS_PV['target'])
+            client.msg(f'{self.name} target_pv is read-only')
 
     def check_device_states(self, alarm=True):
         """Check devices are set properly

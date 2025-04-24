@@ -33,7 +33,7 @@ class MyFrontend(midas.frontend.FrontendBase):
         self.add_equipment(PIDCtrlTailHTRs.PIDCtrl_HTR005(self.client))
         self.add_equipment(PIDCtrlTailHTRs.PIDCtrl_HTR006(self.client))
         self.add_equipment(PIDCtrlTailHTRs.PIDCtrl_HTR007(self.client))
-        self.add_equipment(PIDCtrlTailHTRs.PIDCtrl_HTR008(self.client))
+        # self.add_equipment(PIDCtrlTailHTRs.PIDCtrl_HTR008(self.client))
 
         self.client.msg("AutoStat frontend initialized.")
 
