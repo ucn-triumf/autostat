@@ -9,6 +9,32 @@
     <script src="mhttpd.js"></script>
     <title>AutoStat</title>
     <script>
+        function setup(){
+            // set table rows and sections
+
+            // fpvs
+            let equipments = ["PID_20KShield", "PID_100KShield",
+                            "PID_TransLineTemp", "PID_Wall2Temp",
+                            "PID_ECollar",
+                            ];
+            set_table_section("FPVs", equipments);
+
+            // purifier heaters
+            equipments = [  "PID_PUR_HE70K", "PID_PUR_ISO70K", "PID_PUR_HE20K",
+                            "PID_PUR_ISO20K",
+                        ];
+            set_table_section("Purifier Heaters", equipments);
+
+            // tail section heaters
+            equipments = ["PID_HTR001", "PID_HTR003", "PID_HTR004", "PID_HTR005",
+                        "PID_HTR006", "PID_HTR007", "PID_HTR008"
+                        ];
+            set_table_section("Tail Section Heaters", equipments);
+
+            // notes and title changes
+            document.getElementById("PID_HTR008_title").innerHTML = "PID_HTR008 (not working, perhaps because TS223 is not working?)";
+        }
+
         var gStatusInflight = false;
         function statusPeriodicUpdate(){
 
@@ -20,14 +46,35 @@
                     mjsonrpc_make_request("cm_exist",{"name":"fe_autostat"}),
                 ]).then(function (rpc) {
 
+                    // get all checkboxes
+                    let checkboxes = document.getElementsByClassName("AutoEnable");
+
                     // Check the status of the autostat frontend
                     var prog_exist = rpc[0].result.status;
+
+                    // fe running
                     if(prog_exist == 1){
+
+                        // set banner
                         document.getElementById('updateStatus').innerHTML = "fe_autostat program is running";
                         document.getElementById('updateStatus').style.background = "#65f7ae";
+
+                        // enable all checkboxes
+                        for(let i=0; i<checkboxes.length; i++){
+                            checkboxes[i].disabled = false;
+                        }
+
+                    // fe not running
                     }else{
+
+                        // set banner
                         document.getElementById('updateStatus').innerHTML = "fe_autostat program NOT running";
                         document.getElementById('updateStatus').style.background = "#f58282";
+
+                        // disable all checkboxes
+                        for(let i=0; i<checkboxes.length; i++){
+                            checkboxes[i].disabled = true;
+                        }
                     }
 
                     gStatusInflight = false; // finished async routine
@@ -41,25 +88,47 @@
                 });
         }
 
-        function ask_password(odbpath){
-            /* ask for a password when enabling autostat functions
-            odbpath (string): path to enable setting of corresponding equipment
+        function set_table_section(section, equipments){
+            /*
+                Fill in table rows.
+
+                section: string, title of the section
+                equipments: array of equipment names to populate with
             */
 
-            // check that tick is enabled
-            let val = mjsonrpc_db_get_values(odbpath);
-            console.log(val);
+            const table = document.getElementById("table_body");
 
-            if(val){
-                dlgQuery("Enter password", '', function test(){});
+            // make section
+            let row = table.insertRow();
+            let cell = row.insertCell();
+            cell.outerHTML = `<th colspan="5" class="mtableheader">${section}</th>`;
+
+            // make header
+            row = table.insertRow();
+            let columns = ["Program", "Controlling", "Target", "Target Setpoint", "Enabled"];
+
+            for(let i=0; i<columns.length; i++){
+                let cell = row.insertCell();
+                cell.innerHTML = `<b>${columns[i]}</b>`;
+                cell.style = "width: 200px;";
             }
 
+            // make cells
+            for(let i=0; i<equipments.length; i++){
+                row = table.insertRow();
+                let equip = equipments[i];
 
+                row.insertCell().innerHTML = `<a href="/Equipment/${equip}/Settings"><div id=${equip}_title>${equip}</div></a>`;
+                row.insertCell().innerHTML = `<div name="modbvalue" data-odb-path="/Equipment/${equip}/Settings/control_pv" data-odb-editable="0" ></div>`;
+                row.insertCell().innerHTML = `<div name="modbvalue" data-odb-path="/Equipment/${equip}/Settings/target_pv" data-odb-editable="0" ></div>`;
+                row.insertCell().innerHTML = `<div name="modbvalue" data-odb-path="/Equipment/${equip}/Settings/target_setpoint" data-odb-editable="1" ></div>`;
+                row.insertCell().innerHTML = `<input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/${equip}/Settings/Enabled"></input>`;
+            }
         }
     </script>
 </head>
 
-<body class="mcss" onload="mhttpd_init('AutoStat');setInterval(statusPeriodicUpdate,3000);statusPeriodicUpdate()">
+<body class="mcss" onload="mhttpd_init('AutoStat');setup();setInterval(statusPeriodicUpdate,3000);statusPeriodicUpdate()">
 
     <!-- header and side navigation will be filled in mhttpd_start -->
     <div id="mheader"></div>
@@ -67,384 +136,18 @@
     <div id="mmain">
     <div id="full_div" style="display:block">
         <section>
-                <!-- <h1><p style="text-align: center;">Enable AutoStat Programs</p></h1> -->
                 <table class="mtable">
 
                     <!-- TABLE HEADER -->
-                    <tr style="height: 50px">
-                        <th colspan="5" class="mtableheader"><h1>Enable AutoStat Control Loops</h1></th>
-                    </tr>
-                    <tr>
-                        <td colspan="5" style="text-align: center"> <b><div id="updateStatus"></b></td>
-                    </tr>
-
-                    <tr>
-                        <th colspan="5" class="mtableheader">FPVs</th>
-                    </tr>
-                    <tr>
-                        <td style="width: 200px;">
-                            <b>Program</b>
-                        </td>
-                        <td style="width: 200px;">
-                            <b>Controlling</b>
-                        </td>
-                        <td style="width: 200px;">
-                            <b>Target</b>
-                        </td>
-                        <td style="width: 100px;">
-                            <b>Target Setpoint</b>
-                        </td>
-                        <td style="width: 100px;">
-                            <b>Enabled</b>
-                        </td>
-                    </tr>
-
-                    <!-- 20K Shield Temperature -->
-                    <tr>
-                        <td>
-                            <a href="/Equipment/PID_20KShield/Settings">PID_20KShield</a>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_20KShield/Settings/control_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_20KShield/Settings/target_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_20KShield/Settings/target_setpoint" data-odb-editable="1" ></div>
-                        </td>
-                        <td>
-                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_20KShield/Settings/Enabled"></input>
-                        </td>
-                    </tr>
-
-                    <!-- 100K Shield Temperature -->
-                    <tr>
-                        <td>
-                            <a href="/Equipment/PID_100KShield/Settings">PID_100KShield</a>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_100KShield/Settings/control_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_100KShield/Settings/target_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_100KShield/Settings/target_setpoint" data-odb-editable="1" ></div>
-                        </td>
-                        <td>
-                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_100KShield/Settings/Enabled"></input>
-                        </td>
-                    </tr>
-
-                    <!-- Transfer Line Temperature -->
-                    <tr>
-                        <td>
-                            <a href="/Equipment/PID_TransLineTemp/Settings">PID_TransLineTemp</a>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_TransLineTemp/Settings/control_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_TransLineTemp/Settings/target_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_TransLineTemp/Settings/target_setpoint" data-odb-editable="1" ></div>
-                        </td>
-                        <td>
-                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_TransLineTemp/Settings/Enabled"></input>
-                        </td>
-                    </tr>
-
-                    <!-- Wall 2 Temperature -->
-                    <tr>
-                        <td>
-                            <a href="/Equipment/PID_Wall2Temp/Settings">PID_Wall2Temp</a>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_Wall2Temp/Settings/control_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_Wall2Temp/Settings/target_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_Wall2Temp/Settings/target_setpoint" data-odb-editable="1" ></div>
-                        </td>
-                        <td>
-                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_Wall2Temp/Settings/Enabled"></input>
-                        </td>
-                    </tr>
-
-                    <!-- East Collar Temperature -->
-                    <tr>
-                        <td>
-                            <a href="/Equipment/PID_ECollar/Settings">PID_ECollar</a>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_ECollar/Settings/control_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_ECollar/Settings/target_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_ECollar/Settings/target_setpoint" data-odb-editable="1" ></div>
-                        </td>
-                        <td>
-                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_ECollar/Settings/Enabled"></input>
-                        </td>
-                    </tr>
-
-                    <!-- ====================================================================================== -->
-                    <!-- Purifier Heaters -->
-                    <!-- ====================================================================================== -->
-                    <tr>
-                        <td colspan="5" class="mtableheader"> Purifier Heaters</td>
-                    </tr>
-                    <tr>
-                        <td style="width: 200px;">
-                            <b>Program</b>
-                        </td>
-                        <td style="width: 200px;">
-                            <b>Controlling</b>
-                        </td>
-                        <td style="width: 200px;">
-                            <b>Target</b>
-                        </td>
-                        <td style="width: 100px;">
-                            <b>Target Setpoint</b>
-                        </td>
-                        <td style="width: 100px;">
-                            <b>Enabled</b>
-                        </td>
-                    </tr>
-
-                    <!-- Purifier 70K He3 HTR-->
-                    <tr>
-                        <td>
-                            <a href="/Equipment/PID_PUR_HE70K/Settings">PID_PUR_HE70K</a>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_PUR_HE70K/Settings/control_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_PUR_HE70K/Settings/target_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_PUR_HE70K/Settings/target_setpoint" data-odb-editable="1" ></div>
-                        </td>
-                        <td>
-                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_PUR_HE70K/Settings/Enabled"></input>
-                        </td>
-                    </tr>
-
-                    <!-- Purifier 70K Iso HTR-->
-                    <tr>
-                        <td>
-                            <a href="/Equipment/PID_PUR_ISO70K/Settings">PID_PUR_ISO70K</a>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_PUR_ISO70K/Settings/control_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_PUR_ISO70K/Settings/target_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_PUR_ISO70K/Settings/target_setpoint" data-odb-editable="1" ></div>
-                        </td>
-                        <td>
-                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_PUR_ISO70K/Settings/Enabled"></input>
-                        </td>
-                    </tr>
-
-                    <!-- Purifier 20K He3 HTR-->
-                    <tr>
-                        <td>
-                            <a href="/Equipment/PID_PUR_HE20K/Settings">PID_PUR_HE20K</a>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_PUR_HE20K/Settings/control_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_PUR_HE20K/Settings/target_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_PUR_HE20K/Settings/target_setpoint" data-odb-editable="1" ></div>
-                        </td>
-                        <td>
-                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_PUR_HE20K/Settings/Enabled"></input>
-                        </td>
-                    </tr>
-
-                    <!-- Purifier 20K Iso HTR-->
-                    <tr>
-                        <td>
-                            <a href="/Equipment/PID_PUR_ISO20K/Settings">PID_PUR_ISO20K</a>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_PUR_ISO20K/Settings/control_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_PUR_ISO20K/Settings/target_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_PUR_ISO20K/Settings/target_setpoint" data-odb-editable="1" ></div>
-                        </td>
-                        <td>
-                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_PUR_ISO20K/Settings/Enabled"></input>
-                        </td>
-                    </tr>
-
-                    <!-- ====================================================================================== -->
-                    <!-- Tail Section Heaters -->
-                    <!-- ====================================================================================== -->
-                    <tr>
-                        <td colspan="5" class="mtableheader"> Tail Section Heaters</td>
-                    </tr>
-                    <tr>
-                        <td style="width: 200px;">
-                            <b>Program</b>
-                        </td>
-                        <td style="width: 200px;">
-                            <b>Controlling</b>
-                        </td>
-                        <td style="width: 200px;">
-                            <b>Target</b>
-                        </td>
-                        <td style="width: 100px;">
-                            <b>Target Setpoint</b>
-                        </td>
-                        <td style="width: 100px;">
-                            <b>Enabled</b>
-                        </td>
-                    </tr>
-
-                    <!-- HTR001-->
-                    <tr>
-                        <td>
-                            <a href="/Equipment/PID_HTR001/Settings">PID_HTR001</a>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR001/Settings/control_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR001/Settings/target_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR001/Settings/target_setpoint" data-odb-editable="1" ></div>
-                        </td>
-                        <td>
-                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_HTR001/Settings/Enabled"></input>
-                        </td>
-                    </tr>
-                    <!-- HTR003-->
-                    <tr>
-                        <td>
-                            <a href="/Equipment/PID_HTR003/Settings">PID_HTR003</a>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR003/Settings/control_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR003/Settings/target_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR003/Settings/target_setpoint" data-odb-editable="1" ></div>
-                        </td>
-                        <td>
-                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_HTR003/Settings/Enabled"></input>
-                        </td>
-                    </tr>
-                    <!-- HTR004-->
-                    <tr>
-                        <td>
-                            <a href="/Equipment/PID_HTR004/Settings">PID_HTR004</a>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR004/Settings/control_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR004/Settings/target_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR004/Settings/target_setpoint" data-odb-editable="1" ></div>
-                        </td>
-                        <td>
-                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_HTR004/Settings/Enabled"></input>
-                        </td>
-                    </tr>
-                    <!-- HTR005-->
-                    <tr>
-                        <td>
-                            <a href="/Equipment/PID_HTR005/Settings">PID_HTR005</a>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR005/Settings/control_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR005/Settings/target_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR005/Settings/target_setpoint" data-odb-editable="1" ></div>
-                        </td>
-                        <td>
-                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_HTR005/Settings/Enabled"></input>
-                        </td>
-                    </tr>
-                    <!-- HTR006-->
-                    <tr>
-                        <td>
-                            <a href="/Equipment/PID_HTR006/Settings">PID_HTR006</a>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR006/Settings/control_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR006/Settings/target_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR006/Settings/target_setpoint" data-odb-editable="1" ></div>
-                        </td>
-                        <td>
-                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_HTR006/Settings/Enabled"></input>
-                        </td>
-                    </tr>
-                    <!-- HTR007-->
-                    <tr>
-                        <td>
-                            <a href="/Equipment/PID_HTR007/Settings">PID_HTR007</a>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR007/Settings/control_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR007/Settings/target_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR007/Settings/target_setpoint" data-odb-editable="1" ></div>
-                        </td>
-                        <td>
-                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_HTR007/Settings/Enabled"></input>
-                        </td>
-                    </tr>
-                    <!-- HTR008-->
-                    <tr>
-                        <td>
-                            <a href="/Equipment/PID_HTR008/Settings">PID_HTR008 (not working, perhaps because TS223 is not working?)</a>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR008/Settings/control_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR008/Settings/target_pv" data-odb-editable="0" ></div>
-                        </td>
-                        <td>
-                            <div name="modbvalue" data-odb-path="/Equipment/PID_HTR008/Settings/target_setpoint" data-odb-editable="1" ></div>
-                        </td>
-                        <td>
-                            <input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/PID_HTR008/Settings/Enabled"></input>
-                        </td>
-                    </tr>
-
+                    <thead>
+                        <tr style="height: 50px">
+                            <th colspan="5" class="mtableheader"><h1>Enable AutoStat Control Loops</h1></th>
+                        </tr>
+                        <tr>
+                            <td colspan="5" style="text-align: center"> <b><div id="updateStatus"></b></td>
+                        </tr>
+                    </thead>
+                    <tbody id="table_body"></tbody>
                 </table>
         </section>
         </div>
