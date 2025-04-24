@@ -456,3 +456,102 @@ class PIDControllerBase_ZeroOnDisable(PIDControllerBase):
             self.t0 = t1
             self.last_setpoint = val
 
+class PIDControllerBase_ZeroOnDisable_Panic(PIDControllerBase_ZeroOnDisable):
+    """Class which includes panic state and zeroing on disable, which includes during panic state"""
+
+    def __init__(self, client, name):
+        super().__init__(client, name)
+        self.panic_thresh = self.get_limited_var('target_high_thresh')
+        self.panic_state = False
+        self.t_panic = 0 # time at which we have panicked and opened safety valve
+
+        self.client.odb_watch(f'{self.odb_settings_dir}/target_high_thresh',
+                              self.callback_target_high_thresh,
+                              pass_changed_value_only=True)
+
+    def callback_target_high_thresh(self, client, path, idx, odb_value):
+        self.panic_thresh = self.limit_var('target_high_thresh', odb_value)
+        client.msg(f'{self.name} target high threshold changed to {self.panic_thresh}')
+
+    def readout_func(self):
+        """
+        For a periodic equipment, this function will be called periodically
+        (every 100ms in this case). It should return either a `cdms.event.Event`
+        or None (if we shouldn't write an event).
+        """
+
+        # don't run if not enabled
+        if not self.is_enabled:
+            return
+
+        # check that all devices are withing operating limits
+        # exceptions to be made if in panic state
+        if not self.panic_state and not self.check_device_states():
+            self.ensure_set('ctrl', 0.0)
+            self.last_setpoint = np.nan
+            return
+
+        # check if htr setpoint changed significantly between calls
+        if not np.isnan(self.last_setpoint) and abs(self.pv['ctrl'].get() - self.last_setpoint) > 1:
+            msg = f'"{self.EPICS_PV["ctrl"]}" setpoint ({self.pv["ctrl"].get():.0f}) '+\
+                  f'does not match previously set value ({self.last_setpoint:.0f}) - disabling {self.name}'
+            self.client.trigger_internal_alarm('AutoStat', msg,
+                                               default_alarm_class='Warning')
+            self.disable()
+            return
+
+        # get time
+        t1 = time.time()
+
+        # check if target is updating
+        target_val = self.pv['target'].get()
+
+        # target is updating, update saved values
+        if self.target_last != target_val:
+            self.target_last = target_val
+            self.t_target_last = t1
+
+        # target has not been updated past the timeout duration
+        elif (self.target_timeout_s > 0) and (t1 - self.t_target_last > self.target_timeout_s):
+            msg = f'"{self.EPICS_PV["target"]}" timeout! Value read back has been {target_val} for the last {t1 - self.t_target_last} seconds'
+            self.client.trigger_internal_alarm('AutoStat', f'"{self.EPICS_PV["target"]}" timeout',
+                                               default_alarm_class='Warning')
+            self.client.msg(msg)
+            self.disable()
+
+        # check if panic state
+        if target_val > self.panic_thresh:
+
+            if not self.panic_state:
+
+                # get values before we do anything
+                self.last_output = self.pv['ctrl'].get()
+
+                # set the panic state stop the control variable
+                self.ensure_set('ctrl', 0.0)
+                self.last_setpoint = np.nan
+                self.t_panic = time.time()
+                self.panic_state = True
+                self.client.msg(f'{self.name}: Target over threshold. Stopping control and setting {self.EPICS_PV["ctrl"]} to zero')
+
+        # panicking: wait at least 30 s for the pressure to go down
+        elif self.panic_state and (t1 - self.t_panic) > 30:
+
+            # restore prev values
+            self.pv['ctrl'].put(self.last_output*0.8)
+            self.last_setpoint = self.last_output*0.8
+
+            # stop panicking
+            self.panic_state = False
+            self.client.msg(f'{self.name}: Target back under threshold. Resuming PID control.')
+
+        # new control value
+        if t1-self.t0 >= self.time_step_s and not self.panic_state:
+
+            # apply control operation
+            val = self.pid(target_val)
+            self.pv['ctrl'].put(val)
+
+            # new t0 and htr setpoint value to check against
+            self.t0 = t1
+            self.last_setpoint = val

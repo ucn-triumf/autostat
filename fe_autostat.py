@@ -1,7 +1,8 @@
 import midas
 import midas.frontend
 import PIDCtrlEquipment
-import PIDCtrlPurifier 
+import PIDCtrlPurifier
+import PIDCtrlTailHTRs
 
 class MyFrontend(midas.frontend.FrontendBase):
     """
@@ -19,13 +20,22 @@ class MyFrontend(midas.frontend.FrontendBase):
         self.add_equipment(PIDCtrlEquipment.PIDCtrl_FPV209_TS351(self.client))
         self.add_equipment(PIDCtrlEquipment.PIDCtrl_FPV212_TS245(self.client))
         self.add_equipment(PIDCtrlEquipment.PIDCtrl_HTR204_PT206(self.client))
-        
+
         # from PIDCtrlPurifier
         self.add_equipment(PIDCtrlPurifier.PIDCtrl_HTR105_TS510(self.client))
         self.add_equipment(PIDCtrlPurifier.PIDCtrl_HTR010_TS512(self.client))
         self.add_equipment(PIDCtrlPurifier.PIDCtrl_HTR107_TS511(self.client))
-        self.add_equipment(PIDCtrlPurifier.PIDCtrl_HTR012_TS513(self.client))     
-        
+        self.add_equipment(PIDCtrlPurifier.PIDCtrl_HTR012_TS513(self.client))
+
+        # from PIDCtrlTailHTRs
+        # self.add_equipment(PIDCtrlTailHTRs.PIDCtrl_HTR001(self.client))
+        # self.add_equipment(PIDCtrlTailHTRs.PIDCtrl_HTR003(self.client))
+        # self.add_equipment(PIDCtrlTailHTRs.PIDCtrl_HTR004(self.client))
+        # self.add_equipment(PIDCtrlTailHTRs.PIDCtrl_HTR005(self.client))
+        # self.add_equipment(PIDCtrlTailHTRs.PIDCtrl_HTR006(self.client))
+        # self.add_equipment(PIDCtrlTailHTRs.PIDCtrl_HTR007(self.client))
+        # self.add_equipment(PIDCtrlTailHTRs.PIDCtrl_HTR008(self.client))
+
         self.client.msg("AutoStat frontend initialized.")
 
     def frontend_exit(self):
