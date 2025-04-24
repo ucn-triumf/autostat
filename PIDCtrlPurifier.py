@@ -26,8 +26,8 @@ class PIDCtrl_HTR105_TS510(PIDControllerBase_ZeroOnDisable):
     # default settings
     DEFAULT_SETTINGS = collections.OrderedDict([
         ("Enabled", False),
-        ("P", 0.9),
-        ("I", 0.04),
+        ("P", 640.0),
+        ("I", 1.0),
         ("D", 0.0),
         ("inverted_output", False),
         ("target_setpoint", 70),
@@ -78,8 +78,8 @@ class PIDCtrl_HTR010_TS512(PIDControllerBase_ZeroOnDisable):
     # default settings
     DEFAULT_SETTINGS = collections.OrderedDict([
         ("Enabled", False),
-        ("P", 0.9),
-        ("I", 0.04),
+        ("P", 640.0),
+        ("I", 1.0),
         ("D", 0.0),
         ("inverted_output", False),
         ("target_setpoint", 70),
@@ -130,8 +130,8 @@ class PIDCtrl_HTR107_TS511(PIDControllerBase_ZeroOnDisable):
     # default settings
     DEFAULT_SETTINGS = collections.OrderedDict([
         ("Enabled", False),
-        ("P", 0.9),
-        ("I", 0.04),
+        ("P", 640.0),
+        ("I", 1.0),
         ("D", 0.0),
         ("inverted_output", False),
         ("target_setpoint", 20),
@@ -182,8 +182,8 @@ class PIDCtrl_HTR012_TS513(PIDControllerBase_ZeroOnDisable):
     # default settings
     DEFAULT_SETTINGS = collections.OrderedDict([
         ("Enabled", False),
-        ("P", 0.9),
-        ("I", 0.04),
+        ("P", 640.0),
+        ("I", 1.0),
         ("D", 0.0),
         ("inverted_output", False),
         ("target_setpoint", 20),

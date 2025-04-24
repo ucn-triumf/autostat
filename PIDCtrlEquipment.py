@@ -193,7 +193,7 @@ class PIDCtrl_FPV212_TS245(PIDControllerBase):
     # default settings
     DEFAULT_SETTINGS = collections.OrderedDict([
         ("Enabled", False),
-        ("P", 1.0),
+        ("P", 3.0),
         ("I", 0.0),
         ("D", 0.0),
         ("inverted_output", True),
@@ -252,7 +252,7 @@ class PIDCtrl_HTR204_PT206(PIDControllerBase):
     DEFAULT_SETTINGS = collections.OrderedDict([
         ("Enabled", False),
         ("P", 0.9),
-        ("I", 0.04),
+        ("I", 0.05),
         ("D", 0.0),
         ("inverted_output", False),
         ("target_setpoint", 1400),
