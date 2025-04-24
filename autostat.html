@@ -13,23 +13,20 @@
             // set table rows and sections
 
             // fpvs
-            let equipments = ["PID_20KShield", "PID_100KShield",
-                            "PID_TransLineTemp", "PID_Wall2Temp",
-                            "PID_ECollar",
-                            ];
-            set_table_section("FPVs", equipments);
+            set_table_section("FPVs",
+                             ["PID_20KShield", "PID_100KShield", "PID_TransLineTemp",
+                              "PID_Wall2Temp", "PID_ECollar"]);
 
             // purifier heaters
-            equipments = [  "PID_PUR_HE70K", "PID_PUR_ISO70K", "PID_PUR_HE20K",
-                            "PID_PUR_ISO20K",
-                        ];
-            set_table_section("Purifier Heaters", equipments);
+            set_table_section("Purifier Heaters",
+                             ["PID_PUR_HE70K", "PID_PUR_ISO70K", "PID_PUR_HE20K",
+                              "PID_PUR_ISO20K"]);
 
             // tail section heaters
-            equipments = ["PID_HTR001", "PID_HTR003", "PID_HTR004", "PID_HTR005",
-                        "PID_HTR006", "PID_HTR007", "PID_HTR008"
-                        ];
-            set_table_section("Tail Section Heaters", equipments);
+            set_table_section("Tail Section Heaters",
+                             ["PID_HTR001", "PID_HTR003", "PID_HTR004",
+                              "PID_HTR005", "PID_HTR006", "PID_HTR007",
+                              "PID_HTR008"]);
 
             // notes and title changes
             document.getElementById("PID_HTR008_title").innerHTML = "PID_HTR008 (not working, perhaps because TS223 is not working?)";
