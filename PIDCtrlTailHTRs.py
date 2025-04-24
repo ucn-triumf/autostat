@@ -12,6 +12,7 @@ class PIDCtrl_HTR001(PIDControllerBase_ZeroOnDisable_Panic):
                 'time_step_s': (0, 500),
                 'output_limit_low': (0, 2000),
                 'output_limit_high': (0, 2000),
+                'target_high_thresh': (0, 500),
                 }
 
     # devices/indicators from epics to monitor or write to
@@ -64,6 +65,7 @@ class PIDCtrl_HTR003(PIDControllerBase_ZeroOnDisable_Panic):
                 'time_step_s': (0, 500),
                 'output_limit_low': (0, 1700),
                 'output_limit_high': (0, 1700),
+                'target_high_thresh': (0, 500),
                 }
 
     # devices/indicators from epics to monitor or write to
@@ -116,6 +118,7 @@ class PIDCtrl_HTR004(PIDControllerBase_ZeroOnDisable_Panic):
                 'time_step_s': (0, 500),
                 'output_limit_low': (0, 1700),
                 'output_limit_high': (0, 1700),
+                'target_high_thresh': (0, 500),
                 }
 
     # devices/indicators from epics to monitor or write to
@@ -168,6 +171,7 @@ class PIDCtrl_HTR005(PIDControllerBase_ZeroOnDisable_Panic):
                 'time_step_s': (0, 500),
                 'output_limit_low': (0, 1700),
                 'output_limit_high': (0, 1700),
+                'target_high_thresh': (0, 500),
                 }
 
     # devices/indicators from epics to monitor or write to
@@ -220,6 +224,7 @@ class PIDCtrl_HTR006(PIDControllerBase_ZeroOnDisable_Panic):
                 'time_step_s': (0, 500),
                 'output_limit_low': (0, 1700),
                 'output_limit_high': (0, 1700),
+                'target_high_thresh': (0, 500),
                 }
 
     # devices/indicators from epics to monitor or write to
@@ -272,6 +277,7 @@ class PIDCtrl_HTR007(PIDControllerBase_ZeroOnDisable_Panic):
                 'time_step_s': (0, 500),
                 'output_limit_low': (0, 2200),
                 'output_limit_high': (0, 2200),
+                'target_high_thresh': (0, 500),
                 }
 
     # devices/indicators from epics to monitor or write to
@@ -324,6 +330,7 @@ class PIDCtrl_HTR008(PIDControllerBase_ZeroOnDisable_Panic):
                 'time_step_s': (0, 500),
                 'output_limit_low': (0, 2200),
                 'output_limit_high': (0, 2200),
+                'target_high_thresh': (0, 500),
                 }
 
     # devices/indicators from epics to monitor or write to
