@@ -106,11 +106,12 @@
             // make header
             row = table.insertRow();
             let columns = ["Program", "Controlling", "Target", "Target Setpoint", "Enabled"];
+            let width = ["200px", "200px", "200px", "70px", "70px"];
 
             for(let i=0; i<columns.length; i++){
                 let cell = row.insertCell();
                 cell.innerHTML = `<b>${columns[i]}</b>`;
-                cell.style = "width: 200px;";
+                cell.style = `width: ${width[i]}; text-align: center;`;
             }
 
             // make cells
@@ -121,8 +122,8 @@
                 row.insertCell().innerHTML = `<a href="/Equipment/${equip}/Settings"><div id=${equip}_title>${equip}</div></a>`;
                 row.insertCell().innerHTML = `<div name="modbvalue" data-odb-path="/Equipment/${equip}/Settings/control_pv" data-odb-editable="0" ></div>`;
                 row.insertCell().innerHTML = `<div name="modbvalue" data-odb-path="/Equipment/${equip}/Settings/target_pv" data-odb-editable="0" ></div>`;
-                row.insertCell().innerHTML = `<div name="modbvalue" data-odb-path="/Equipment/${equip}/Settings/target_setpoint" data-odb-editable="1" ></div>`;
-                row.insertCell().innerHTML = `<input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/${equip}/Settings/Enabled"></input>`;
+                row.insertCell().outerHTML = `<td style="text-align: center;"><div name="modbvalue" data-odb-path="/Equipment/${equip}/Settings/target_setpoint" data-odb-editable="1" ></div></td>`;
+                row.insertCell().outerHTML = `<td style="text-align: center;"><input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/${equip}/Settings/Enabled"></input></td>`;
             }
         }
     </script>
