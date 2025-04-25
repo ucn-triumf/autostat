@@ -121,7 +121,26 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
 
         # choose callback operation
         if '/Enabled' in path:
-            self.callback_enabled(client, path, idx, odb_value)
+            if odb_value:
+                self.set_status("Running", status_color='greenLight')
+                self.reset_pid()
+
+                settings_list = [f'P={self.pid.Kp}',
+                                f'I={self.pid.Ki}',
+                                f'D={self.pid.Kd}',
+                                f'setpoint={self.pid.setpoint}',
+                                f'limits={self.pid.output_limits}',
+                                f'proportional_on_measurement={self.pid.proportional_on_measurement}',
+                                f'differential_on_measurement={self.pid.differential_on_measurement}',
+                                f'last_setpoint={self.last_setpoint}',
+                                f'time_step_s={self.time_step_s}',
+                                f'inverted={self.inverted == -1}',
+                                ]
+                client.msg(f'{self.name} has been enabled with settings: '+', '.join(settings_list))
+            else:
+                self.set_status("Ready, Disabled", status_color='yellowGreenLight')
+                self.last_setpoint = np.nan
+                client.msg(f'{self.name} has been disabled')
 
         elif '/P' == path[-2:]:
             self.pid.Kp = odb_value*self.inverted
@@ -180,29 +199,6 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         elif '/differential_on_measurement' in path:
             self.pid.differential_on_measurement = odb_value
             client.msg(f'{self.name} differential_on_measurement changed to {self.pid.differential_on_measurement}')
-
-    def callback_enabled(self, client, path, idx, odb_value):
-        """Called when enable flag is changed"""
-        if odb_value:
-            self.set_status("Running", status_color='greenLight')
-            self.reset_pid()
-
-            settings_list = [f'P={self.pid.Kp}',
-                            f'I={self.pid.Ki}',
-                            f'D={self.pid.Kd}',
-                            f'setpoint={self.pid.setpoint}',
-                            f'limits={self.pid.output_limits}',
-                            f'proportional_on_measurement={self.pid.proportional_on_measurement}',
-                            f'differential_on_measurement={self.pid.differential_on_measurement}',
-                            f'last_setpoint={self.last_setpoint}',
-                            f'time_step_s={self.time_step_s}',
-                            f'inverted={self.inverted == -1}',
-                            ]
-            client.msg(f'{self.name} has been enabled with settings: '+', '.join(settings_list))
-        else:
-            self.set_status("Ready, Disabled", status_color='yellowGreenLight')
-            self.last_setpoint = np.nan
-            client.msg(f'{self.name} has been disabled')
 
     def check_device_states(self, alarm=True):
         """Check devices are set properly
@@ -444,13 +440,14 @@ class PIDControllerBase_ZeroOnDisable_Panic(PIDControllerBase_ZeroOnDisable):
         self.panic_state = False
         self.t_panic = 0 # time at which we have panicked and opened safety valve
 
-        self.client.odb_watch(f'{self.odb_settings_dir}/target_high_thresh',
-                              self.callback_target_high_thresh,
-                              pass_changed_value_only=True)
+    def callback_main(self, client, path, idx, odb_value):
+        """Add callback for target high threshold"""
 
-    def callback_target_high_thresh(self, client, path, idx, odb_value):
-        self.panic_thresh = self.limit_var('target_high_thresh', odb_value)
-        client.msg(f'{self.name} target high threshold changed to {self.panic_thresh}')
+        if '/target_high_thresh' in path:
+            self.panic_thresh = self.limit_var('target_high_thresh', odb_value)
+            client.msg(f'{self.name} target high threshold changed to {self.panic_thresh}')
+        else:
+            super().callback_main(client, path, idx, odb_value)
 
     def readout_func(self):
         """
