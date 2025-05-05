@@ -11,7 +11,7 @@ class MyFrontend(midas.frontend.FrontendBase):
     """
     def __init__(self):
         # You must call __init__ from the base class.
-        midas.frontend.FrontendBase.__init__(self, "fe_autostat")
+        midas.frontend.FrontendBase.__init__(self, "fe_autostat_pid")
 
         # from PIDCtrlEquipment
         self.add_equipment(PIDCtrlEquipment.PIDCtrl_FPV205_TS505(self.client))
@@ -35,14 +35,14 @@ class MyFrontend(midas.frontend.FrontendBase):
         self.add_equipment(PIDCtrlTailHTRs.PIDCtrl_HTR007(self.client))
         self.add_equipment(PIDCtrlTailHTRs.PIDCtrl_HTR008(self.client))
 
-        self.client.msg("AutoStat frontend initialized.")
+        self.client.msg("AutoStat PID frontend initialized.")
 
     def frontend_exit(self):
         """
         Most people won't need to define this function, but you can use
         it for final cleanup if needed.
         """
-        self.client.msg("AutoStat frontend stopped.")
+        self.client.msg("AutoStat PID frontend stopped.")
 
 if __name__ == "__main__":
     # The main executable is very simple - just create the frontend object,

@@ -6,7 +6,7 @@ PID loop control over an EPICS PV in order to set another PV to a specified targ
 
 | Program Name | Control Variable | Target Variable |
 | --- | --- | --- |
-| [PID_4KPressure (autopurify)](#autopurify) | HTR204 | PT206 |
+| [PID_4KPressure (autopurify) [Depreciated] ](#autopurify) | HTR204 | PT206 |
 | PID_20KShield | FPV205 | TS505 |
 | PID_100KShield | FPV207 | TS508 |
 | PID_TransLineTemp | FPV212 | TS245 |
