@@ -3,7 +3,7 @@
 # May 2025
 
 import midas, midas.client
-from EpicsDevice import get_device
+from EpicsDevice import EpicsDeviceCollection
 import time
 
 # timeout error when turning stuff on/off
@@ -21,17 +21,8 @@ class CryoScript(object):
         devices_below (dict): initial checklist of names:thresh (no prefix or suffix). Pass if less than thresh
         devices_off (list): initial checklist of names (no prefix or suffix). Pass if off/closed
         devices_on (list): initial checklist of names (no prefix or suffix). Pass if on/open
+        scriptname (str): name of this script
     """
-
-    # device prefixes
-    prefix = {  '0': 'UCN2:ISO',
-                '1': 'UCN2:HE3',
-                '2': 'UCN2:HE4',
-                '3': 'UCN2:LD2',
-                '5': 'UCN2:CRY',
-                '7': 'UCN2:UDG',
-                '8': 'UCN2:VAC',
-            }
 
     # variables for initial checks of cryo state
 
@@ -43,33 +34,32 @@ class CryoScript(object):
     devices_below = {}      # pass if readback < threshold
     devices_above = {}      # pass if readback > threshold
 
+    # name of this script
+    scriptname = 'default'
 
-    def __init__(self, scriptname):
 
-        # initialization
-        self._devices = {}   # name:EpicsDevice
+    def __init__(self):
 
         # make logger
-        logger = logging.getLogger('cryoscript')
-        logger.setLevel(logging.INFO)
+        self.logger = logging.getLogger('cryoscript')
+        self.logger.setLevel(logging.INFO)
         log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 
         # setup file handler with rotating file handling
-        rfile_handler = RotatingFileHandler(f'{scriptname}.log', mode='a',
+        rfile_handler = RotatingFileHandler(f'{self.scriptname}.log', mode='a',
                                             maxBytes=5*1024*1024, backupCount=1,
                                             encoding=None, delay=False)
         rfile_handler.setFormatter(log_formatter)
         rfile_handler.setLevel(logging.INFO)
-        logger.addHandler(rfile_handler)
+        self.logger.addHandler(rfile_handler)
 
         # connect to midas client
-        self.client = midas.client.MidasClient(scriptname)
+        self.client = midas.client.MidasClient(self.scriptname)
 
-        # save
-        self.scriptname = scriptname
-        self.logger = logger
+        # initialization
+        self.devices = EpicsDeviceCollection(self.log)
 
-        self.log(f'Started {scriptname}')
+        self.log(f'Started {self.scriptname}')
 
     def log(self, msg, is_error=False):
         # send logging messages
@@ -88,26 +78,26 @@ class CryoScript(object):
 
         # devices should be on
         for name in self.devices_on:
-            if self.device(name).is_off:
+            if self.devices[name].is_off:
                 msg = f'{name} is on/open when it should be off/closed!'
                 all_good = False
 
         # devices should be off
         for name in self.devices_off:
-            if self.device(name).is_on:
+            if self.devics[name].is_on:
                 msg = f'{name} is off/closed when it should be on/open!'
                 all_good = False
 
         # devices below threshold
         for name, thresh in self.devices_below.items():
-            if self.device(name).readback > thresh:
-                msg = f'{name} is above threshold ({self.device(name).readback:.3f} > {thresh:.3f})'
+            if self.devices[name].readback > thresh:
+                msg = f'{name} is above threshold ({self.devices[name].readback:.3f} > {thresh:.3f})'
                 all_good = False
 
         # devices above threshold
         for name, thresh in self.devices_above.items():
-            if self.device(name).readback < thresh:
-                msg = f'{name} is below threshold ({self.device(name).readback:.3f} < {thresh:.3f})'
+            if self.devices[name].readback < thresh:
+                msg = f'{name} is below threshold ({self.devices[name].readback:.3f} < {thresh:.3f})'
                 all_good = False
 
         # bad exit
@@ -205,7 +195,7 @@ class CryoScript(object):
             sleep_dt (int): number of seconds to sleep before checking the condition again
             print_dt (int): number of seconds between print statement
         """
-        device = self.device(name)
+        device = self.devices[name]
 
         if device.readback > thresh:
             log(f'Waiting for {device.path} to drop above threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
@@ -225,7 +215,7 @@ class CryoScript(object):
             sleep_dt (int): number of seconds to sleep before checking the condition again
             print_dt (int): number of seconds between print statement
         """
-        device = self.device(name)
+        device = self.devices[name]
 
         if device.readback > thresh:
             log(f'Waiting for {device.path} to drop below threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
