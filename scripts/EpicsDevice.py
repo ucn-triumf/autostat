@@ -332,7 +332,7 @@ class EpicsAV(EpicsDevice):
         self.on()
 
     @property
-    def is_open(self):          return is_on()
+    def is_open(self):          return self.is_on
     @property
     def is_closed(self):        return not self.is_open
 
@@ -346,11 +346,6 @@ class EpicsAVNormOpen(EpicsAV):
     def open(self):
         """synonym for on, but for valves"""
         self.off()
-
-    @property
-    def is_open(self):          return is_off()
-    @property
-    def is_closed(self):        return not self.is_open
 
 class EpicsCG(EpicsDevice):
     readback_name = 'RDVAC'
