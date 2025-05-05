@@ -13,3 +13,4 @@ simple_pid
 ## Modes of Operation
 
 * [PID Loops](pid/README.md)
+* [Scripts](scripts/README.md)
