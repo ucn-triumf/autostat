@@ -4,7 +4,8 @@
 
 import midas, midas.client
 from EpicsDevice import EpicsDeviceCollection
-import time
+import time, logging
+from logging.handlers import RotatingFileHandler
 
 # timeout error when turning stuff on/off
 class TimeoutError(Exception): pass
@@ -21,7 +22,8 @@ class CryoScript(object):
         devices_below (dict): initial checklist of names:thresh (no prefix or suffix). Pass if less than thresh
         devices_off (list): initial checklist of names (no prefix or suffix). Pass if off/closed
         devices_on (list): initial checklist of names (no prefix or suffix). Pass if on/open
-        scriptname (str): name of this script
+        run_state: defines what state the system is in to better put the cryostat in a safe operation mode upon failure
+        scriptname (str): name of this class
     """
 
     # variables for initial checks of cryo state
@@ -34,11 +36,9 @@ class CryoScript(object):
     devices_below = {}      # pass if readback < threshold
     devices_above = {}      # pass if readback > threshold
 
-    # name of this script
-    scriptname = 'default'
-
-
     def __init__(self):
+
+        self.scriptname = __class__.__name__
 
         # make logger
         self.logger = logging.getLogger('cryoscript')
@@ -58,8 +58,19 @@ class CryoScript(object):
 
         # initialization
         self.devices = EpicsDeviceCollection(self.log)
+        self.run_state = None
 
-        self.log(f'Started {self.scriptname}')
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+
+        # put cryo in a safe state
+        if exc_type is not None:
+            self.exit()
+
+        # disconnect from midas client
+        self.client.disconnect()
 
     def log(self, msg, is_error=False):
         # send logging messages
@@ -108,44 +119,19 @@ class CryoScript(object):
         else:
             self.log('All checks passed', False)
 
-    def device(self, name):
-        """Get a devices from self._devices, if doesn't exist then connect and return
-
-        Notes:
-            Can only connect to UCN2 devices (for security reasons)
-
-        Args:
-            name (str): name of device without prefix or suffix. Ex: "TS512"
-
-        Returns
-            EpicsDevice: connected device
-        """
-
-        # if exists in dictionary, then return that
-        try:
-            return self._devices[name]
-
-        # doesn't exist: make EpicsDevice
-        except KeyError:
-            # find the prefix from leading value
-            fullname = f'{self.prefix[name[-3]]}:name'
-
-            # add to devices
-            self._devices[name] = get_device(path=fullnane, logfn=self.log)
-
-            return self._devices[name]
-
-    def exit(self, state=None):
+    def exit(self):
         """Put the system into a safe state upon error or exit
+
+        make use of the self.run_state variable to choose between exit strategies
 
         Args:
             state: define system state to select between different exit strategies
         """
         pass
-        self.client.disconnect()
 
     def run(self):
         """Run the script"""
+        self.log(f'Started {self.scriptname}')
         pass
 
     def set_odb(path, value, timeout=10, exit_strategy=None):
