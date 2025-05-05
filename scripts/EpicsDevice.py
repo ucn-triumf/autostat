@@ -10,6 +10,55 @@ class EpicsInterlockError(Exception): pass
 class EpicsTimeoutError(Exception): pass
 class TimeoutError(Exception): pass
 
+# collection of epics devices - access to all UCN2 devices like a dictionary
+class EpicsDeviceCollection(dict):
+    """Store devices like a dictionary, make entries if they don't exist. Basically easy access to any and all devices
+
+    Notes:
+        Can only connect to UCN2 devices (for security reasons)
+        Can access like attributes or dictionary keys
+        keys are key of device without prefix or suffix. Ex: "TS512" or "FM208"
+
+    Args:
+        logfn (fn handle): function for posting logging messages. Format: fn(message, is_error=False)
+
+    Returns
+        EpicsDevice: connected device
+    """
+
+    # device prefixes
+    prefix = {  '0': 'UCN2:ISO',
+                '1': 'UCN2:HE3',
+                '2': 'UCN2:HE4',
+                '3': 'UCN2:LD2',
+                '5': 'UCN2:CRY',
+                '7': 'UCN2:UDG',
+                '8': 'UCN2:VAC',
+            }
+
+    def __init__(self, logfn=None):
+        self._devices = {}
+        self.logfn = logfn
+
+    def __getattr__(self, key):
+        return self[key]
+
+    def __getitem__(self, key):
+
+        # if exists in dictionary, then return that
+        try:
+            return self._devices[key]
+
+        # doesn't exist: make EpicsDevice
+        except KeyError:
+            # find the prefix from leading value
+            fullname = f'{self.prefix[key[-3]]}:{key}'
+
+            # add to devices
+            self._devices[key] = get_device(path=fullname, logfn=self.logfn)
+
+            return self._devices[key]
+
 # assign a class to a device based on the path
 def get_device(path, logfn=None):
 
@@ -66,7 +115,7 @@ class EpicsDevice(object):
             logfn (fn handle): function for posting logging messages. Format: fn(message, is_error=False)
     """
 
-    # suffixes common to all devices
+    # suffixes common to most devices
     suffixes = ('STATON',   # on/off status
                 'STATTMO',  # timeout status
                 'STATDRV',  # drive status
@@ -98,6 +147,17 @@ class EpicsDevice(object):
         self.pv = {key: epics.PV(f'{devicepath}:{key}') for key in self.suffixes}
         self.pv = {**self.pv,
                    **{key: epics.PV(f'{devicepath}:{key}') for key in self.other_suffixes}}
+
+        # wait for keys to connect
+        all_connected = False
+        t0 = time.time()
+        while not all_connected:
+            # timeout
+            if time.time()-t0 > self.timeout:
+                raise TimeoutError(f'EpicsDevice {devicepath} unable to connect to all PVs within {timeout} seconds')
+
+            # check status
+            all_connected = all([pv.connected for pv in self.pv.values()])
 
     def _log(self, message, is_error=False):
         if self.logfn is None:
@@ -184,7 +244,7 @@ class EpicsDevice(object):
 
         # check that a setpoint variable exists
         if self.setpoint_name is None:
-            msg = f'{self.path} does not define a setpoint name'
+            msg = f'{self.path} does not define a setpoint key'
             self._log(msg, True)
             raise RuntimeError(msg)
 
@@ -257,7 +317,7 @@ class EpicsCRV(EpicsDevice):
 
 class EpicsFM(EpicsDevice):
     """Flow meter"""
-    other_suffixes = ('RDFLOW',)
+    suffixes = ('RDFLOW',)
     readback_name = 'RDFLOW'
 
 class EpicsFPV(EpicsDevice):
@@ -343,7 +403,7 @@ class EpicsHTRCalibrated(EpicsHTR):
 class EpicsIG(EpicsDevice):
     """Ion gauge"""
     readback_name = 'RDVAC'
-    other_suffixes = ['RDVAC']
+    suffixes = ['RDVAC']
 
 class EpicsMFC(EpicsDevice):
     """Mass flow controller"""
@@ -354,7 +414,7 @@ class EpicsMFC(EpicsDevice):
 class EpicsPT(EpicsDevice):
     """Pressure sensor"""
     readback_name = 'RDPRESS'
-    other_suffixes = ['RDPRESS']
+    suffixes = ['RDPRESS']
 
 class EpicsTP(EpicsDevice):
     """Turbo pump"""
@@ -425,7 +485,7 @@ class EpicsTP(EpicsDevice):
 class EpicsTS(EpicsDevice):
     """Temperature sensor"""
     readback_name = 'RDTEMPK'
-    other_suffixes = ['RDTEMPK']
+    suffixes = ['RDTEMPK']
 
 # device-specific classes ---------------------------------------------------
 class EpicsAV020(EpicsAV):
