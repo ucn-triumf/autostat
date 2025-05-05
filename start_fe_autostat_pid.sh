@@ -9,6 +9,6 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 # export VIRTUAL_ENV_DISABLE_PROMPT=1
 source ~/python3_env/bin/activate
 
-cd /home/ucn/online/autostat
+cd /home/ucn/online/autostat/pid
 
-python3 fe_autostat.py
+python3 fe_autostat_pid.py
