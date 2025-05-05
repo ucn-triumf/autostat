@@ -13,17 +13,17 @@
             // set table rows and sections
 
             // fpvs
-            set_table_section("FPVs",
+            set_pid_table_section("FPVs",
                              ["PID_20KShield", "PID_100KShield", "PID_TransLineTemp",
                               "PID_Wall2Temp", "PID_ECollar"]);
 
             // purifier heaters
-            set_table_section("Purifier Heaters",
+            set_pid_table_section("Purifier Heaters",
                              ["PID_PUR_HE70K", "PID_PUR_ISO70K", "PID_PUR_HE20K",
                               "PID_PUR_ISO20K"]);
 
             // tail section heaters
-            set_table_section("Tail Section Heaters",
+            set_pid_table_section("Tail Section Heaters",
                              ["PID_HTR001", "PID_HTR003", "PID_HTR004",
                               "PID_HTR005", "PID_HTR006", "PID_HTR007",
                               "PID_HTR008"]);
@@ -34,14 +34,14 @@
         }
 
         var gStatusInflight = false;
-        function statusPeriodicUpdate(){
+        function update_pid_runstate(){
 
             // don't make another request if the last request is still outstanding.
             if(gStatusInflight) return;
             gStatusInflight = true;
 
             mjsonrpc_send_request([
-                    mjsonrpc_make_request("cm_exist",{"name":"fe_autostat"}),
+                    mjsonrpc_make_request("cm_exist",{"name":"fe_autostat_pid"}),
                 ]).then(function (rpc) {
 
                     // get all checkboxes
@@ -54,7 +54,7 @@
                     if(prog_exist == 1){
 
                         // set banner
-                        document.getElementById('updateStatus').innerHTML = "fe_autostat program is running";
+                        document.getElementById('updateStatus').innerHTML = "fe_autostat_pid program is running";
                         document.getElementById('updateStatus').style.background = "#65f7ae";
 
                         // enable all checkboxes
@@ -66,7 +66,7 @@
                     }else{
 
                         // set banner
-                        document.getElementById('updateStatus').innerHTML = "fe_autostat program NOT running";
+                        document.getElementById('updateStatus').innerHTML = "fe_autostat_pid program NOT running";
                         document.getElementById('updateStatus').style.background = "#f58282";
 
                         // disable all checkboxes
@@ -86,7 +86,7 @@
                 });
         }
 
-        function set_table_section(section, equipments){
+        function set_pid_table_section(section, equipments){
             /*
                 Fill in table rows.
 
@@ -127,7 +127,7 @@
     </script>
 </head>
 
-<body class="mcss" onload="setup();mhttpd_init('AutoStat');setInterval(statusPeriodicUpdate,3000);statusPeriodicUpdate()">
+<body class="mcss" onload="setup();mhttpd_init('AutoStat');setInterval(update_pid_runstate,3000);update_pid_runstate()">
 
     <!-- header and side navigation will be filled in mhttpd_start -->
     <div id="mheader"></div>
@@ -135,12 +135,11 @@
     <div id="mmain">
     <div id="full_div" style="display:block">
         <section>
+                <!-- PID Table -->
                 <table class="mtable">
-
-                    <!-- TABLE HEADER -->
                     <thead>
                         <tr style="height: 50px">
-                            <th colspan="5" class="mtableheader"><h1>Enable AutoStat Control Loops</h1></th>
+                            <th colspan="5" class="mtableheader"><h1>Enable PID Control Loops</h1></th>
                         </tr>
                         <tr>
                             <td colspan="5" style="text-align: center"> <b><div id="updateStatus"></b></td>
@@ -149,6 +148,6 @@
                     <tbody id="table_body"></tbody>
                 </table>
         </section>
-        </div>
+    </div>
 </body>
 </html>

@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# run with "nohup ./regen2cooling.py &" to keep the code running in the background even if disconnected
+# run with "nohup ./he_purifier.py &" to keep the code running in the background even if disconnected
 # Transition the He purifier from regeneration to cooling
 # Derek Fujimoto
 # May 2025
@@ -22,7 +22,7 @@ logger.setLevel(logging.INFO)
 log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 
 # setup file handler with rotating file handling
-rfile_handler = RotatingFileHandler('regen2cooling.log', mode='a',
+rfile_handler = RotatingFileHandler('he_purifier.log', mode='a',
                                     maxBytes=5*1024*1024, backupCount=1,
                                     encoding=None, delay=False)
 rfile_handler.setFormatter(log_formatter)
@@ -30,27 +30,27 @@ rfile_handler.setLevel(logging.INFO)
 logger.addHandler(rfile_handler)
 
 # setup file handler for messages from this execution
-file_handler = logging.FileHandler('thisregen2cooling.log', mode='w',
+file_handler = logging.FileHandler('thishe_purifier.log', mode='w',
                                    encoding=None, delay=False)
 file_handler.setFormatter(log_formatter)
 file_handler.setLevel(logging.INFO)
 logger.addHandler(file_handler)
 
 # connect to midas client
-client = midas.client.MidasClient("regen2cooling")
+client = midas.client.MidasClient("he_purifier")
 
 # setup logging/messaging functions
 def log(msg, is_error=False):
     if is_error:
         logger.error(msg)
-        client.trigger_internal_alarm('regen2cooling', msg,
+        client.trigger_internal_alarm('he_purifier', msg,
                                       default_alarm_class='Alarm')
     else:
         logger.info(msg)
     client.msg(msg, is_error=is_error)
 
 # start
-log('Started regen2cooling')
+log('Started he_purifier')
 
 # setup epics devices to read/write from
 device_names = ['UCN2:CRY:TS512',
@@ -403,7 +403,7 @@ try:
     # start_regeneration()
 
     # end
-    log('Finished regen2cooling')
+    log('Finished he_purifier')
 
 finally:
     client.disconnect()
