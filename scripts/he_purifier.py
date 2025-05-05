@@ -11,7 +11,6 @@ from CryoScript import CryoScript
 
 # TODO: Make elog entry on completion?
 # TODO: stop_circulation should check for clogs
-# TODO: cleaner management of scripts and logging
 
 # make scripts ------------------------------------------------------------
 class StartCooling(CryoScript):

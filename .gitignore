@@ -1,6 +1,6 @@
 midas
 midas.frontend
-midas.log
+*.log
 time
 collections
 epics

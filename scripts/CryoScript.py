@@ -7,9 +7,6 @@ from EpicsDevice import EpicsDeviceCollection
 import time, logging
 from logging.handlers import RotatingFileHandler
 
-# timeout error when turning stuff on/off
-class TimeoutError(Exception): pass
-
 class CryoScript(object):
     """Queue and execute a sequence of cryostat control operations
 
@@ -59,7 +56,6 @@ class CryoScript(object):
         self.devices = EpicsDeviceCollection(self.log)
         self.run_state = None
 
-
     def __enter__(self):
         return self
 
@@ -78,16 +74,6 @@ class CryoScript(object):
         self.check_status()
         self.run(*args, **kwargs)
         self.log(f'Completed {self.__class__.__name__}')
-
-    def log(self, msg, is_error=False):
-        # send logging messages
-        if is_error:
-            self.logger.error(msg)
-            self.client.trigger_internal_alarm(self.__class__.__name__, msg,
-                                        default_alarm_class='Alarm')
-        else:
-            self.logger.info(msg)
-        self.client.msg(msg, is_error=is_error)
 
     def check_status(self):
         """Verify that the state of the system is as expected"""
@@ -124,6 +110,17 @@ class CryoScript(object):
             state: define system state to select between different exit strategies
         """
         pass
+
+    def log(self, msg, is_error=False):
+        # send logging messages
+        if is_error:
+            self.logger.error(msg)
+            self.client.trigger_internal_alarm(self.__class__.__name__, msg,
+                                        default_alarm_class='Alarm')
+        else:
+            self.logger.info(msg)
+
+        self.client.msg(msg, is_error=is_error)
 
     def run(self):
         """Run the script"""

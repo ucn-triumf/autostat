@@ -107,7 +107,8 @@ def get_device(path, logfn=None):
 # base class for simple devices ---------------------------------------------
 class EpicsDevice(object):
     """
-        Basic device class
+        Basic device class. Allows one to treat a collection of PVs as a single device
+        which you can read/write or turn on/off.
 
         Args:
             devicepath (str): top path to device, excluding its components. Ex: UCN2:HE4:FPV212
@@ -143,7 +144,6 @@ class EpicsDevice(object):
             raise RuntimeError(f'devicepath must be of type str')
         if not isinstance(timeout, (float, int)):
             raise RuntimeError(f'timeout must be of numerical type (int or float)')
-
 
         # save inputs
         self.path = devicepath
