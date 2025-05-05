@@ -114,19 +114,26 @@ class CryoScript(object):
     def log(self, msg, is_error=False):
         # send logging messages
         if is_error:
-            self.logger.error(msg)
+            self.logger.error(f'[{self.__class__.__name__}] {msg}')
             self.client.trigger_internal_alarm(self.__class__.__name__, msg,
                                         default_alarm_class='Alarm')
         else:
-            self.logger.info(msg)
+            self.logger.info(f'[{self.__class__.__name__}] {msg}')
 
-        self.client.msg(msg, is_error=is_error)
+        self.client.msg(f'[{self.__class__.__name__}] {msg}', is_error=is_error)
 
     def run(self):
-        """Run the script"""
+        """Run the script
+
+        Notes:
+            This function is called inside of self.__call__() as a conveniance wrapper
+            Define self.run_state and self.exit() to exit safely on crash or error
+            Error messages are caught by self.__exit__() and are automatically logged
+            Best practice is to run inside of "with" statement
+        """
         pass
 
-    def set_odb(path, value, timeout=10, exit_strategy=None):
+    def set_odb(self, path, value, timeout=10, exit_strategy=None):
         """Set ODB variable
 
         Args:
@@ -141,7 +148,7 @@ class CryoScript(object):
             if time.time()-t0 > timeout:
                 raise TimeoutError(f'Attempted to set {path} for {timeout} seconds, stuck at {client.odb_get(path)}')
 
-            client.odb_set(path, value)
+            self.client.odb_set(path, value)
             time.sleep(1)
         self.log(f'Set {path} to {value}')
 

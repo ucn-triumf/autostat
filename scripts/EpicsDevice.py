@@ -8,7 +8,6 @@ import time
 class EpicsError(Exception): pass
 class EpicsInterlockError(Exception): pass
 class EpicsTimeoutError(Exception): pass
-class TimeoutError(Exception): pass
 
 # collection of epics devices - access to all UCN2 devices like a dictionary
 class EpicsDeviceCollection(dict):
@@ -156,7 +155,7 @@ class EpicsDevice(object):
                    **{key: epics.PV(f'{devicepath}:{key}') for key in self.other_suffixes}}
 
         # wait for keys to connect
-        all_connected = False
+        all_connected = all([pv.connected for pv in self.pv.values()])
         t0 = time.time()
         while not all_connected:
             # timeout
@@ -164,6 +163,7 @@ class EpicsDevice(object):
                 raise TimeoutError(f'EpicsDevice {devicepath} unable to connect to all PVs within {timeout} seconds')
 
             # check status
+            time.sleep(0.001)
             all_connected = all([pv.connected for pv in self.pv.values()])
 
     def _log(self, message, is_error=False):
@@ -247,7 +247,7 @@ class EpicsDevice(object):
         self._log(f'{self.path} reset', False)
 
     def set(self, setpoint):
-        """Set the flow"""
+        """Set the setpoint variable pointed to by self.setpoint_name"""
 
         # check that a setpoint variable exists
         if self.setpoint_name is None:
@@ -279,7 +279,7 @@ class EpicsDevice(object):
             time.sleep(self.sleep_time)
 
         # set success
-        self._log(f"{self.path} setpoint ({self.setpoint_name}) set to {setpoint} {self.setpoint_units}")
+        self._log(f"{self.path}:{self.setpoint_name} set to {setpoint} {self.setpoint_units}")
 
     # dynamic properties
     @property

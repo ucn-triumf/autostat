@@ -94,8 +94,6 @@ class StartCirculation(CryoScript):
                      'TS513': 100}
 
     def run(self, mfc001_setpt=50):
-        self.log(f'Started {self.scriptname}')
-        self.check_status()
 
         # disable AV020 auto control
         self.devices.AV020.disable_auto()
@@ -159,8 +157,8 @@ class StartCirculation(CryoScript):
 
         # double-check valve states. These should be closed:
         avlist = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV013',
-                'AV015', 'AV017', 'AV018', 'AV023', 'AV024', 'AV026', 'AV028',
-                'AV030', 'AV031', 'AV032', 'AV034', 'AV050', 'AV051']
+                  'AV015', 'AV017', 'AV018', 'AV023', 'AV024', 'AV026', 'AV028',
+                  'AV030', 'AV031', 'AV032', 'AV034', 'AV050', 'AV051']
 
         for av in avlist:
             if self.devices[av].is_open:
@@ -170,15 +168,13 @@ class StartCirculation(CryoScript):
 
         # double-check valve states. These should be open:
         avlist = ['AV010', 'AV011', 'AV012', 'AV014', 'AV016', 'AV019', 'AV020',
-                'AV021', 'AV022', 'AV024', 'AV025', 'AV027', 'AV029']
+                  'AV021', 'AV022', 'AV024', 'AV025', 'AV027', 'AV029']
 
         for av in avlist:
             if self.devices[av].is_closed:
                 msg = f'{av} is closed when it should be open! Opening to protect bad pressure buildup.'
                 self.log(msg, True)
                 self.devices[av].open()
-
-        self.log('Circulation of isopure has started')
 
 class StopCirculation(CryoScript):
     pass
@@ -219,7 +215,7 @@ class StopRegeneration(CryoScript):
 # For best protections of cryostat on error, run inside of "with" statement
 
 with StopRegeneration() as script:
-    script(fm208_thresh = 0.25)
+    script(fm208_thresh = 0.45)
 
 with StartCooling() as script:
     script(temperature = 40)
