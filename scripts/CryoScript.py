@@ -23,7 +23,6 @@ class CryoScript(object):
         devices_off (list): initial checklist of names (no prefix or suffix). Pass if off/closed
         devices_on (list): initial checklist of names (no prefix or suffix). Pass if on/open
         run_state: defines what state the system is in to better put the cryostat in a safe operation mode upon failure
-        scriptname (str): name of this class
     """
 
     # variables for initial checks of cryo state
@@ -38,15 +37,15 @@ class CryoScript(object):
 
     def __init__(self):
 
-        self.scriptname = __class__.__name__
+        scriptname = __class__.__name__
 
         # make logger
-        self.logger = logging.getLogger('cryoscript')
+        self.logger = logging.getLogger('CryoScript')
         self.logger.setLevel(logging.INFO)
         log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 
         # setup file handler with rotating file handling
-        rfile_handler = RotatingFileHandler(f'{self.scriptname}.log', mode='a',
+        rfile_handler = RotatingFileHandler(f'{scriptname}.log', mode='a',
                                             maxBytes=5*1024*1024, backupCount=1,
                                             encoding=None, delay=False)
         rfile_handler.setFormatter(log_formatter)
@@ -54,11 +53,12 @@ class CryoScript(object):
         self.logger.addHandler(rfile_handler)
 
         # connect to midas client
-        self.client = midas.client.MidasClient(self.scriptname)
+        self.client = midas.client.MidasClient(scriptname)
 
         # initialization
         self.devices = EpicsDeviceCollection(self.log)
         self.run_state = None
+
 
     def __enter__(self):
         return self
@@ -67,57 +67,53 @@ class CryoScript(object):
 
         # put cryo in a safe state
         if exc_type is not None:
+            self.log(str(exc_value), is_error=True)
             self.exit()
 
         # disconnect from midas client
         self.client.disconnect()
 
+    def __call__(self, *args, **kwargs):
+        self.log(f'Started {self.__class__.__name__}')
+        self.check_status()
+        self.run(*args, **kwargs)
+        self.log(f'Completed {self.__class__.__name__}')
+
     def log(self, msg, is_error=False):
         # send logging messages
         if is_error:
-            logger.error(msg)
-            self.client.trigger_internal_alarm(self.scriptname, msg,
+            self.logger.error(msg)
+            self.client.trigger_internal_alarm(self.__class__.__name__, msg,
                                         default_alarm_class='Alarm')
         else:
-            logger.info(msg)
+            self.logger.info(msg)
         self.client.msg(msg, is_error=is_error)
 
     def check_status(self):
         """Verify that the state of the system is as expected"""
 
-        all_good = True
-
         # devices should be on
         for name in self.devices_on:
             if self.devices[name].is_off:
-                msg = f'{name} is on/open when it should be off/closed!'
-                all_good = False
+                raise RuntimeError(f'{name} is on/open when it should be off/closed!')
 
         # devices should be off
         for name in self.devices_off:
-            if self.devics[name].is_on:
-                msg = f'{name} is off/closed when it should be on/open!'
-                all_good = False
+            if self.devices[name].is_on:
+                raise RuntimeError(f'{name} is off/closed when it should be on/open!')
 
         # devices below threshold
         for name, thresh in self.devices_below.items():
             if self.devices[name].readback > thresh:
-                msg = f'{name} is above threshold ({self.devices[name].readback:.3f} > {thresh:.3f})'
-                all_good = False
+                raise RuntimeError(f'{name} is above threshold ({self.devices[name].readback:.3f} > {thresh:.3f})')
 
         # devices above threshold
         for name, thresh in self.devices_above.items():
             if self.devices[name].readback < thresh:
-                msg = f'{name} is below threshold ({self.devices[name].readback:.3f} < {thresh:.3f})'
-                all_good = False
+                raise RuntimeError(f'{name} is below threshold ({self.devices[name].readback:.3f} < {thresh:.3f})')
 
         # bad exit
-        if not all_good:
-            self.log(msg, True)
-            self.exit()
-            raise RuntimeError(msg)
-        else:
-            self.log('All checks passed', False)
+        self.log('All checks passed', False)
 
     def exit(self):
         """Put the system into a safe state upon error or exit
@@ -131,7 +127,6 @@ class CryoScript(object):
 
     def run(self):
         """Run the script"""
-        self.log(f'Started {self.scriptname}')
         pass
 
     def set_odb(path, value, timeout=10, exit_strategy=None):
@@ -147,10 +142,7 @@ class CryoScript(object):
         while self.client.odb_get(path) != value:
             # timeout
             if time.time()-t0 > timeout:
-                msg = f'Attempted to set {path} for {timeout} seconds, stuck at {client.odb_get(path)}'
-                self.log(msg, True)
-                self.exit(exit_strategy)
-                raise TimeoutError(msg)
+                raise TimeoutError(f'Attempted to set {path} for {timeout} seconds, stuck at {client.odb_get(path)}')
 
             client.odb_set(path, value)
             time.sleep(1)
@@ -172,7 +164,7 @@ class CryoScript(object):
 
             time.sleep(sleep_dt)
 
-    def wait_until_greaterthan(name, thresh, sleep_dt=60, print_dt=900):
+    def wait_until_greaterthan(self, name, thresh, sleep_dt=60, print_dt=900):
         """Block program execution until device readback is above the theshold
 
         Args:
@@ -184,7 +176,7 @@ class CryoScript(object):
         device = self.devices[name]
 
         if device.readback > thresh:
-            log(f'Waiting for {device.path} to drop above threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
+            self.log(f'Waiting for {device.path} to drop above threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
 
             self.wait(condition = lambda : device.readback < thresh,
                       sleep_dt=sleep_dt,
@@ -192,7 +184,7 @@ class CryoScript(object):
 
         self.log(f'{device.path} ({device.readback:.2f} {device.readback_units}) satisfies threshold of {thresh} {device.readback_units}')
 
-    def wait_until_lessthan(name, thresh, sleep_dt=60, print_dt=900):
+    def wait_until_lessthan(self, name, thresh, sleep_dt=60, print_dt=900):
         """Block program execution until device readback is below the theshold
 
         Args:
@@ -204,7 +196,7 @@ class CryoScript(object):
         device = self.devices[name]
 
         if device.readback > thresh:
-            log(f'Waiting for {device.path} to drop below threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
+            self.log(f'Waiting for {device.path} to drop below threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
 
             self.wait(condition = lambda : device.readback < thresh,
                       sleep_dt=sleep_dt,

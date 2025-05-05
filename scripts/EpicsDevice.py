@@ -138,6 +138,13 @@ class EpicsDevice(object):
 
     def __init__(self, devicepath, logfn=None, timeout=10):
 
+        # check inputs
+        if not isinstance(devicepath, str):
+            raise RuntimeError(f'devicepath must be of type str')
+        if not isinstance(timeout, (float, int)):
+            raise RuntimeError(f'timeout must be of numerical type (int or float)')
+
+
         # save inputs
         self.path = devicepath
         self.timeout = timeout
@@ -493,8 +500,8 @@ class EpicsAV020(EpicsAV):
 
     other_suffixes = ('STAT.B8', 'CMD')
 
-    def __init__(self, devicepath, timeout=10):
-        super().__init__(devicepath, timeout=timeout)
+    def __init__(self, devicepath, logfn=None, timeout=10):
+        super().__init__(devicepath, logfn=logfn, timeout=timeout)
 
         # connect to other devices, specific to particular AV
         self.pv['PT001High'] = epics.PV(f'UCN2:ISO:PT001:SETTHRESH1')
@@ -558,8 +565,8 @@ class EpicsAV021(EpicsAV):
 
     other_suffixes = ('STAT.B8', 'CMD')
 
-    def __init__(self, devicepath, timeout=10):
-        super().__init__(devicepath, timeout=timeout)
+    def __init__(self, devicepath, logfn=None, timeout=10):
+        super().__init__(devicepath, logfn=logfn, timeout=timeout)
 
         # connect to other devices, specific to particular AV
         self.pv['PT001High'] = epics.PV(f'UCN2:ISO:PT001:SETTHRESH3')
