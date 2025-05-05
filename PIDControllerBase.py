@@ -325,8 +325,8 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
             self.t_target_last = t1
 
         # target has not been updated past the timeout duration
-        elif (self.target_timeout_s > 0) and (t1 - self.t_target_last > self.target_timeout_s):
-            msg = f'"{self.EPICS_PV["target"]}" timeout! Value read back has been {target_val} for the last {int(t1 - self.t_target_last)} seconds'
+        elif (self.target_timeout_s > 0) and (t1-self.t_target_last > self.target_timeout_s):
+            msg = f'"{self.EPICS_PV["target"]}" timeout! Value read back has been {target_val} for the last {t1 - self.t_target_last:.1f} seconds'
             self.client.trigger_internal_alarm('AutoStat', f'"{self.EPICS_PV["target"]}" timeout',
                                                default_alarm_class='Warning')
             self.client.msg(msg)
@@ -412,8 +412,8 @@ class PIDControllerBase_ZeroOnDisable(PIDControllerBase):
             self.t_target_last = t1
 
         # target has not been updated past the timeout duration
-        elif t1 - self.t_target_last > self.target_timeout_s:
-            msg = f'"{self.EPICS_PV["target"]}" timeout! Value read back has been {target_val} for the last {t1 - self.t_target_last} seconds'
+        elif (self.target_timeout_s > 0) and (t1-self.t_target_last > self.target_timeout_s):
+            msg = f'"{self.EPICS_PV["target"]}" timeout! Value read back has been {target_val} for the last {t1 - self.t_target_last:.1f} seconds'
             self.client.trigger_internal_alarm('AutoStat', f'"{self.EPICS_PV["target"]}" timeout',
                                                default_alarm_class='Warning')
             self.client.msg(msg)
@@ -488,8 +488,8 @@ class PIDControllerBase_ZeroOnDisable_Panic(PIDControllerBase_ZeroOnDisable):
             self.t_target_last = t1
 
         # target has not been updated past the timeout duration
-        elif (self.target_timeout_s > 0) and (t1 - self.t_target_last > self.target_timeout_s):
-            msg = f'"{self.EPICS_PV["target"]}" timeout! Value read back has been {target_val} for the last {t1 - self.t_target_last} seconds'
+        elif (self.target_timeout_s > 0) and (t1-self.t_target_last > self.target_timeout_s):
+            msg = f'"{self.EPICS_PV["target"]}" timeout! Value read back has been {target_val} for the last {t1 - self.t_target_last:.1f} seconds'
             self.client.trigger_internal_alarm('AutoStat', f'"{self.EPICS_PV["target"]}" timeout',
                                                default_alarm_class='Warning')
             self.client.msg(msg)
