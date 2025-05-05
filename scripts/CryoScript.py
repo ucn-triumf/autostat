@@ -32,7 +32,7 @@ class CryoScript(object):
     devices_below = {}      # pass if readback < threshold
     devices_above = {}      # pass if readback > threshold
 
-    def __init__(self):
+    def __init__(self, timeout=10, human_operated=False):
 
         scriptname = __class__.__name__
 
@@ -53,7 +53,9 @@ class CryoScript(object):
         self.client = midas.client.MidasClient(scriptname)
 
         # initialization
-        self.devices = EpicsDeviceCollection(self.log)
+        self.devices = EpicsDeviceCollection(self.log, timeout=timeout, human_operated=False)
+        self.timeout = timeout
+        self.human_operated = human_operated
         self.run_state = None
 
     def __enter__(self):
@@ -70,10 +72,10 @@ class CryoScript(object):
         self.client.disconnect()
 
     def __call__(self, *args, **kwargs):
-        self.log(f'Started {self.__class__.__name__}')
+        self.log(f'started')
         self.check_status()
         self.run(*args, **kwargs)
-        self.log(f'Completed {self.__class__.__name__}')
+        self.log(f'completed')
 
     def check_status(self):
         """Verify that the state of the system is as expected"""
@@ -99,7 +101,11 @@ class CryoScript(object):
                 raise RuntimeError(f'{name} is below threshold ({self.devices[name].readback:.3f} < {thresh:.3f})')
 
         # bad exit
-        self.log('All checks passed', False)
+        self.log(f'All checks passed', False)
+
+    @property
+    def name(self):
+        return self.__class__.__name__
 
     def exit(self):
         """Put the system into a safe state upon error or exit
@@ -114,13 +120,13 @@ class CryoScript(object):
     def log(self, msg, is_error=False):
         # send logging messages
         if is_error:
-            self.logger.error(f'[{self.__class__.__name__}] {msg}')
-            self.client.trigger_internal_alarm(self.__class__.__name__, msg,
+            self.logger.error(f'[{self.name}] {msg}')
+            self.client.trigger_internal_alarm(self.name, msg,
                                         default_alarm_class='Alarm')
         else:
-            self.logger.info(f'[{self.__class__.__name__}] {msg}')
+            self.logger.info(f'[{self.name}] {msg}')
 
-        self.client.msg(f'[{self.__class__.__name__}] {msg}', is_error=is_error)
+        self.client.msg(f'[{self.name}] {msg}', is_error=is_error)
 
     def run(self):
         """Run the script
@@ -148,7 +154,11 @@ class CryoScript(object):
             if time.time()-t0 > timeout:
                 raise TimeoutError(f'Attempted to set {path} for {timeout} seconds, stuck at {client.odb_get(path)}')
 
-            self.client.odb_set(path, value)
+            if self.human_operated:
+                input(f'Set {path} to {value}')
+            else:
+                self.client.odb_set(path, value)
+
             time.sleep(1)
         self.log(f'Set {path} to {value}')
 
