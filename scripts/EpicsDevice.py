@@ -62,9 +62,18 @@ class EpicsDeviceCollection(dict):
 def get_device(path, logfn=None):
 
     if ':AV' in path:
-        if   'AV020' in path: return EpicsAV020(path, logfn)
-        elif 'AV021' in path: return EpicsAV021(path, logfn)
-        else:                 return EpicsAV(path, logfn)
+        if 'AV020' in path:
+            return EpicsAV020(path, logfn)
+        elif 'AV021' in path:
+            return EpicsAV021(path, logfn)
+
+        # normally open valves
+        else:
+            for av in ['AV024', 'AV025', 'AV026', 'AV108', 'AV203', ]:
+                if av in path:
+                    return EpicsAVNormOpen(path, logfn)
+
+        return EpicsAV(path, logfn)
 
     elif ':CG' in path:
         return EpicsCG(path, logfn)
@@ -171,22 +180,32 @@ class EpicsDevice(object):
             return
         self.logfn(message, is_error)
 
-    def close(self):
-        """synonym for off, but for valves"""
-        self.off()
-
     def healthcheck(self):
         # some simple checks of device health
 
         if self.is_interlocked and not self.is_bypassed:
-            msg = f'{self.path} device is interlocked'
+            msg = f'{self.path} is interlocked'
             self._log(msg, True)
             raise EpicsInterlockError(msg)
 
         if self.is_timeout:
-            msg = f'{self.path} device has timed-out'
-            self._log(msg, True)
-            raise EpicsTimeoutError(msg)
+            self._log(f'{self.path} has timed-out', False)
+
+            # try to reset
+            t0 = time.time()
+            while self.is_timeout:
+
+                # timeout
+                if time.time()-t0 < self.timeout:
+                    msg = f'{self.path} has timed-out and is unresponsive to reset'
+                    self._log(msg, True)
+                    raise EpicsTimeoutError(msg)
+
+                # reset
+                self.reset()
+                time.sleep(self.sleep_time)
+
+            self._log(f'Reset of {self.path} successful')
 
     def off(self):
         """Turn device off"""
@@ -210,7 +229,7 @@ class EpicsDevice(object):
             time.sleep(self.sleep_time)
 
         # switch success
-        self._log(f'{self.path} turned off / closed', False)
+        self._log(f'{self.path} turned off', False)
 
     def on(self):
         """Turn device on"""
@@ -235,11 +254,7 @@ class EpicsDevice(object):
             time.sleep(self.sleep_time)
 
         # switch success
-        self._log(f'{self.path} turned on / opened', False)
-
-    def open(self):
-        """synonym for on, but for valves"""
-        self.on()
+        self._log(f'{self.path} turned on', False)
 
     def reset(self):
         """Reset device"""
@@ -285,13 +300,9 @@ class EpicsDevice(object):
     @property
     def is_bypassed(self):      return bool(self.pv['STATBYP'].get())
     @property
-    def is_closed(self):        return not self.is_open
-    @property
-    def is_off(self):           return not self.is_on
+    def is_off(self):           return not bool(self.pv['STATON'].get())
     @property
     def is_on(self):            return bool(self.pv['STATON'].get())
-    @property
-    def is_open(self):          return bool(self.pv['STATON'].get())
     @property
     def is_driven(self):        return bool(self.pv['STATDRV'].get())
     @property
@@ -312,9 +323,42 @@ class EpicsAV(EpicsDevice):
     """Automatic Valves"""
     sleep_time = 1
 
+    def close(self):
+        """synonym for off, but for valves"""
+        self.off()
+
+    def open(self):
+        """synonym for on, but for valves"""
+        self.on()
+
+    @property
+    def is_open(self):          return is_on()
+    @property
+    def is_closed(self):        return not self.is_open
+
+class EpicsAVNormOpen(EpicsAV):
+    """Normally open AV"""
+
+    def close(self):
+        """synonym for off, but for valves"""
+        self.on()
+
+    def open(self):
+        """synonym for on, but for valves"""
+        self.off()
+
+    @property
+    def is_open(self):          return is_off()
+    @property
+    def is_closed(self):        return not self.is_open
+
 class EpicsCG(EpicsDevice):
     readback_name = 'RDVAC'
-    other_suffixes = ['RDVAC']
+    suffixes = ['RDVAC', 'STATON', 'STATOK']
+
+    @property
+    def is_vacok(self):
+        return bool(self.pv['STATOK'].get())
 
 class EpicsCRV(EpicsDevice):
     """Cryo valves"""
@@ -624,4 +668,3 @@ class EpicsAV021(EpicsAV):
 
         # success
         self._log(f'{self.path} autocontrol disabled')
-
