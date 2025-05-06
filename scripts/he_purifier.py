@@ -12,6 +12,7 @@ from CryoScript import CryoScript
 
 # make scripts ------------------------------------------------------------
 class StartCooling(CryoScript):
+    """Start cooling to target temperature"""
 
     devices_closed = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV010',
                    'AV011', 'AV012', 'AV013', 'AV014', 'AV015', 'AV016', 'AV017',
@@ -46,6 +47,8 @@ class StartCooling(CryoScript):
             self.set_odb(f'/Equipment/{pid}/Settings/Enabled', True)
 
 class StopCooling(CryoScript):
+    """Pause execution until target temperature is reached"""
+
     devices_closed = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV010',
                       'AV011', 'AV012', 'AV013', 'AV014', 'AV015', 'AV016', 'AV017',
                       'AV018', 'AV019', 'AV020', 'AV021', 'AV022', 'AV023', 'AV024',
@@ -81,6 +84,8 @@ class StopCooling(CryoScript):
         self.wait_until_lessthan('TS513', temperature+0.1)
 
 class StartCirculation(CryoScript):
+    """Start the circulation of isopure"""
+
     devices_closed = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV010',
                       'AV011', 'AV012', 'AV013', 'AV014', 'AV015', 'AV016', 'AV017',
                       'AV018', 'AV019', 'AV020', 'AV021', 'AV022', 'AV023', 'AV024',
@@ -178,6 +183,8 @@ class StartCirculation(CryoScript):
                 self.devices[av].open()
 
 class StartRecovery(CryoScript):
+    """Start the isopure recovery process: pump out the pipes before regeneration"""
+
     devices_open = ['AV010', 'AV011', 'AV012', 'AV014', 'AV019', 'AV020', 'AV021',
                     'AV022', 'AV024', 'AV025', 'AV027', 'AV029', ]
 
@@ -227,6 +234,8 @@ class StartRecovery(CryoScript):
         self.devices.AV026.open()
 
 class StopRecovery(CryoScript):
+    """Wait until pressure is low, isopure is pumped out. Then close AV024, AV025 and turn off BP001"""
+
     devices_open = ['AV008', 'AV010', 'AV011', 'AV012', 'AV014', 'AV019', 'AV020',
                     'AV023', 'AV024', 'AV025', 'AV026', 'AV027', 'AV029', ]
 
@@ -283,6 +292,7 @@ class StopRecovery(CryoScript):
         self.devices.AV025.close()
 
 class StartRegeneration(CryoScript):
+    """Start the regeneration process, then wait for flow to appear on FM208"""
 
     devices_open = ['AV008', 'AV010', 'AV011', 'AV012', 'AV014', 'AV019', 'AV020',
                     'AV023', 'AV026', 'AV027', 'AV029', ]
@@ -352,6 +362,8 @@ class StartRegeneration(CryoScript):
         self.wait_until_greaterthan('FM208', fm208_at_least)
 
 class StopRegeneration(CryoScript):
+    """Wait until FM208 drops below threshold then stop the regeneration processs"""
+
     devices_closed = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV010',
                       'AV011', 'AV012', 'AV013', 'AV014', 'AV015', 'AV016', 'AV017',
                       'AV018', 'AV019', 'AV020', 'AV021', 'AV022', 'AV023', 'AV024',
@@ -385,12 +397,6 @@ class StopRegeneration(CryoScript):
 # RUN SCRIPT ==============================================================
 # For best protections of cryostat on error, run inside of "with" statement
 
-# with StartRecovery(dry_run=True) as script:
-#    script()
-
-# with StopRecovery(dry_run=True) as script:
-#    script(pt_thresh=3)
-
 # with StartRegeneration(dry_run=True) as script:
 #    script(temperature=180)
 
@@ -400,5 +406,14 @@ class StopRegeneration(CryoScript):
 # with StartCooling(dry_run=True) as script:
 #     script(temperature = 45)
 
+# BELOW THIS POINT IS DRY_RUN ONLY (UNIMPLEMENTED)
+
 # with StopCooling(dry_run=True) as script:
 #     script(temperature = 45)
+
+# with StartRecovery(dry_run=True) as script:
+#    script()
+
+# with StopRecovery(dry_run=True) as script:
+#    script(pt_thresh=3)
+
