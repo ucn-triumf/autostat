@@ -183,7 +183,7 @@ class EpicsDevice(object):
             return
         self.logfn(message, is_error)
 
-    def _switch(self, valve=False, on=True):
+    def _switch(self, on=True):
         """Turn device on or off
 
         Args:
@@ -202,18 +202,12 @@ class EpicsDevice(object):
         if on:
             suffix = 'DRVON'
             attr = 'is_off'
-
-            # valve state
-            if valve:   state = 'open'
-            else:       state = 'turn on'
+            state = 'on'
 
         else:
             suffix = 'DRVOFF'
             attr = 'is_on'
-
-            # valve state
-            if valve:   state = 'close'
-            else:       state = 'turn off'
+            state = 'off'
 
         # switch with timeout
         t0 = time.time()
@@ -221,7 +215,7 @@ class EpicsDevice(object):
 
             # timeout
             if (self.timeout > 0) and (time.time()-t0 > self.timeout):
-                msg = f'{self.path} timeout while trying to {state}'
+                msg = f'{self.path} timeout while trying to turn {state}'
                 self._log(msg, True)
                 raise TimeoutError(msg)
 
@@ -233,7 +227,7 @@ class EpicsDevice(object):
                 time.sleep(self.sleep_time)
 
         # switch success
-        self._log(f'{prefix}{self.path} {state} success', False)
+        self._log(f'{prefix}{self.path} turned {state}', False)
 
     def healthcheck(self):
         # some simple checks of device health
@@ -276,11 +270,11 @@ class EpicsDevice(object):
 
     def off(self):
         """Turn device off"""
-        self._switch(valve=False, on=False)
+        self._switch(on=False)
 
     def on(self):
         """Turn device on"""
-        self._switch(valve=False, on=True)
+        self._switch(on=True)
 
     def reset(self):
         """Reset device"""
@@ -360,13 +354,63 @@ class EpicsAV(EpicsDevice):
     """Automatic Valves"""
     sleep_time = 1
 
+    on_state = 'open'
+    off_state = 'close'
+
+    def _switch(self, on=True):
+        """Turn device on or off
+
+        Args:
+            valve (bool): if true, print open/closed instead of on/off
+            on (bool): if true turn on, else turn off
+        """
+
+        # check health
+        self.healthcheck()
+
+        # dry run print prefix
+        if self.dry_run:    prefix = '[DRY RUN] '
+        else:               prefix = ''
+
+        # on or off
+        if on:
+            suffix = 'DRVON'
+            attr = 'is_off'
+            state = self.on_state
+
+        else:
+            suffix = 'DRVOFF'
+            attr = 'is_on'
+            state = self.off_state
+
+        # switch with timeout
+        t0 = time.time()
+        while getattr(self, attr):
+
+            # timeout
+            if (self.timeout > 0) and (time.time()-t0 > self.timeout):
+                msg = f'{self.path} timeout while trying to {state}'
+                self._log(msg, True)
+                raise TimeoutError(msg)
+
+            # set
+            if self.dry_run:
+                break
+            else:
+                self.pv[suffix].put(1)
+                time.sleep(self.sleep_time)
+
+        # switch success
+        state = f'{state}ed' if 'open' in state else f'{state}d'
+        self._log(f'{prefix}{self.path} {state}', False)
+
     def close(self):
         """synonym for off, but for valves"""
-        self._switch(valve=True, on=False)
+        self._switch(on=False)
 
     def open(self):
         """synonym for on, but for valves"""
-        self._switch(valve=True, on=True)
+        self._switch(on=True)
 
     @property
     def is_open(self):          return self.is_on
@@ -376,13 +420,16 @@ class EpicsAV(EpicsDevice):
 class EpicsAVNormOpen(EpicsAV):
     """Normally open AV"""
 
+    on_state = 'close'
+    off_state = 'open'
+
     def close(self):
         """synonym for off, but for valves"""
-        self._switch(valve=True, on=True)
+        self._switch(on=True)
 
     def open(self):
         """synonym for on, but for valves"""
-        self._switch(valve=True, on=False)
+        self._switch(on=False)
 
 class EpicsCG(EpicsDevice):
     readback_name = 'RDVAC'
