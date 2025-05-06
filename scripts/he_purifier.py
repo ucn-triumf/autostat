@@ -14,7 +14,8 @@ from CryoScript import CryoScript
 
 # make scripts ------------------------------------------------------------
 class StartCooling(CryoScript):
-    devices_off = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV010',
+
+    devices_closed = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV010',
                    'AV011', 'AV012', 'AV013', 'AV014', 'AV015', 'AV016', 'AV017',
                    'AV018', 'AV019', 'AV020', 'AV021', 'AV022', 'AV023', 'AV024',
                    'AV025', 'AV026', 'AV027', 'AV028', 'AV029', 'AV030', 'AV031',
@@ -25,7 +26,7 @@ class StartCooling(CryoScript):
         # turn on heaters and set setpoints to zero
         for htr in ['HTR010', 'HTR012', 'HTR105', 'HTR107']:
             self.devices[htr].set(0)
-            # self.devices[htr].on() # TODO: Uncomment this line once permissions are given
+            self.devices[htr].on()
 
         # wait until pressure is low before turning on the pump
         self.wait_until_lessthan('PT050', 30)
@@ -47,12 +48,12 @@ class StartCooling(CryoScript):
             self.set_odb(f'/Equipment/{pid}/Settings/Enabled', True)
 
 class StopCooling(CryoScript):
-    devices_off = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV010',
-                   'AV011', 'AV012', 'AV013', 'AV014', 'AV015', 'AV016', 'AV017',
-                   'AV018', 'AV019', 'AV020', 'AV021', 'AV022', 'AV023', 'AV024',
-                   'AV025', 'AV026', 'AV027', 'AV028', 'AV029', 'AV030', 'AV031',
-                   'AV032', 'AV034', 'AV050', 'AV051', 'BP001', 'BP002']
-
+    devices_closed = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV010',
+                      'AV011', 'AV012', 'AV013', 'AV014', 'AV015', 'AV016', 'AV017',
+                      'AV018', 'AV019', 'AV020', 'AV021', 'AV022', 'AV023', 'AV024',
+                      'AV025', 'AV026', 'AV027', 'AV028', 'AV029', 'AV030', 'AV031',
+                      'AV032', 'AV034', 'AV050', 'AV051']
+    devices_off = ['BP001', 'BP002']
     devices_on = ['HTR010', 'HTR012', 'HTR105', 'HTR107']
 
     def check_status(self):
@@ -77,12 +78,13 @@ class StopCooling(CryoScript):
         self.wait_until_lessthan('TS513', temperature+0.1)
 
 class StartCirculation(CryoScript):
+    devices_closed = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV010',
+                      'AV011', 'AV012', 'AV013', 'AV014', 'AV015', 'AV016', 'AV017',
+                      'AV018', 'AV019', 'AV020', 'AV021', 'AV022', 'AV023', 'AV024',
+                      'AV025', 'AV026', 'AV027', 'AV028', 'AV029', 'AV030', 'AV031',
+                      'AV032', 'AV034', 'AV050', 'AV051', ]
 
-    devices_off = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV010',
-                   'AV011', 'AV012', 'AV013', 'AV014', 'AV015', 'AV016', 'AV017',
-                   'AV018', 'AV019', 'AV020', 'AV021', 'AV022', 'AV023', 'AV024',
-                   'AV025', 'AV026', 'AV027', 'AV028', 'AV029', 'AV030', 'AV031',
-                   'AV032', 'AV034', 'AV050', 'AV051', 'BP001', 'BP002']
+    devices_off = ['BP001', 'BP002']
 
     devices_below = {'TS510': 100,
                      'TS511': 100,
@@ -173,13 +175,16 @@ class StartCirculation(CryoScript):
                 self.devices[av].open()
 
 class StartRegeneration(CryoScript):
-    devices_off = [ 'AV007', 'AV009', 'AV013', 'AV017', 'AV018', 'AV022', 'AV024',
-                    'AV025', 'AV026', 'AV028', 'AV030', 'AV031', 'AV032', 'AV034',
-                    'BP001', 'BP002']
 
-    devices_on =  [ 'AV008', 'AV010', 'AV011', 'AV012', 'AV014', 'AV019', 'AV020',
-                    'AV023', 'AV027', 'AV029', 'CP001', 'CP101', 'MP001', 'MP002',
-                    'MFC001', 'HTR010', 'HTR012', 'HTR105', 'HTR107']
+    devices_open = ['AV008', 'AV010', 'AV011', 'AV012', 'AV014', 'AV019', 'AV020',
+                    'AV023', 'AV027', 'AV029', ]
+
+    devices_closed = ['AV007', 'AV009', 'AV013', 'AV017', 'AV018', 'AV022', 'AV024',
+                      'AV025', 'AV026', 'AV028', 'AV030', 'AV031', 'AV032', 'AV034',]
+    devices_off = ['BP001', 'BP002']
+
+    devices_on =  [ 'CP001', 'CP101', 'MP001', 'MP002', 'MFC001', 'HTR010',
+                    'HTR012', 'HTR105', 'HTR107']
 
     def exit(self):
         if self.run_state == 'startup':
@@ -193,6 +198,7 @@ class StartRegeneration(CryoScript):
         self.devices.BP002.on()
         self.devices.CP001.off()
         self.devices.CP101.off()
+        return
 
         self.wait_until_lessthan('CG003', 0.2)
 
@@ -225,18 +231,19 @@ class StartRegeneration(CryoScript):
 
         # enable autostat control
         for pid in ['PID_PUR_ISO70K', 'PID_PUR_ISO20K', 'PID_PUR_HE20K', 'PID_PUR_HE70K']:
-            self.odb_set(f'/Equipment/{pid}/Settings/target_setpoint', temperature)
-            self.odb_set(f'/Equipment/{pid}/Settings/Enabled', True)
+            self.set_odb(f'/Equipment/{pid}/Settings/target_setpoint', temperature)
+            self.set_odb(f'/Equipment/{pid}/Settings/Enabled', True)
 
         # wait for FM208 to start increasing
         self.wait_until_greaterthan('FM208', fm208_at_least)
 
 class StopRegeneration(CryoScript):
-    devices_off = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV010',
-                   'AV011', 'AV012', 'AV013', 'AV014', 'AV015', 'AV016', 'AV017',
-                   'AV018', 'AV019', 'AV020', 'AV021', 'AV022', 'AV023', 'AV024',
-                   'AV025', 'AV026', 'AV027', 'AV028', 'AV029', 'AV030', 'AV031',
-                   'AV032', 'AV034', 'BP001']
+    devices_closed = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV010',
+                      'AV011', 'AV012', 'AV013', 'AV014', 'AV015', 'AV016', 'AV017',
+                      'AV018', 'AV019', 'AV020', 'AV021', 'AV022', 'AV023', 'AV024',
+                      'AV025', 'AV026', 'AV027', 'AV028', 'AV029', 'AV030', 'AV031',
+                      'AV032']
+    devices_off = ['AV034', 'BP001']
 
     devices_on = ['HTR010', 'HTR012', 'HTR105', 'HTR107']
 
@@ -265,11 +272,11 @@ class StopRegeneration(CryoScript):
 # RUN SCRIPT ==============================================================
 # For best protections of cryostat on error, run inside of "with" statement
 
-with StartRegeneration(human_operated=True) as script:
-    script(temperature=180)
+with StartRegeneration(dry_run=True) as script:
+   script(temperature=180)
 
-with StopRegeneration() as script:
-    script(fm208_thresh = 0.45)
+with StopRegeneration(dry_run=True) as script:
+    script(fm208_thresh = 0.25)
 
-with StartCooling() as script:
-    script(temperature = 40)
+with StartCooling(dry_run=True) as script:
+    script(temperature = 45)

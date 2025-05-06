@@ -20,6 +20,8 @@ class EpicsDeviceCollection(dict):
 
     Args:
         logfn (fn handle): function for posting logging messages. Format: fn(message, is_error=False)
+        timeout (int): duration in seconds before throwing timeouterror
+        dry_run (bool): instead of performing action, just log the action
 
     Returns
         EpicsDevice: connected device
@@ -35,11 +37,14 @@ class EpicsDeviceCollection(dict):
                 '8': 'UCN2:VAC',
             }
 
-    def __init__(self, logfn=None, timeout=10, human_operated=False):
+    # time between reset attempts if device timeout
+    reset_check_delay = 2
+
+    def __init__(self, logfn=None, timeout=10, dry_run=False):
         self._devices = {}
         self.logfn = logfn
         self.timeout = timeout
-        self.human_operated = human_operated
+        self.dry_run = dry_run
 
     def __getattr__(self, key):
         return self[key]
@@ -59,66 +64,54 @@ class EpicsDeviceCollection(dict):
             self._devices[key] = get_device(path=fullname,
                                             logfn=self.logfn,
                                             timeout=self.timeout,
-                                            human_operated=self.human_operated,
+                                            dry_run=self.dry_run,
                                             )
 
             return self._devices[key]
 
 # assign a class to a device based on the path
-def get_device(path, logfn=None, timeout=10, human_operated=False):
+def get_device(path, logfn=None, timeout=10, dry_run=False):
+
+    obj = None
 
     if ':AV' in path:
 
+        # normally closed valves
+        obj = EpicsAV
+
         # special valves
         if 'AV020' in path:
-            return EpicsAV020(path, logfn, timeout, human_operated)
+            obj = EpicsAV020
         elif 'AV021' in path:
-            return EpicsAV021(path, logfn, timeout, human_operated)
+            obj = EpicsAV021
 
         # normally open valves
         else:
             for av in ['AV024', 'AV025', 'AV026', 'AV108', 'AV203', ]:
                 if av in path:
-                    return EpicsAVNormOpen(path, logfn, timeout, human_operated)
+                    obj = EpicsAVNormOpen
+                    break
 
-        return EpicsAV(path, logfn, timeout, human_operated)
-
-    elif ':CG' in path:
-        return EpicsCG(path, logfn, timeout, human_operated)
-
-    elif ':CRV' in path:
-        return EpicsCRV(path, logfn, timeout, human_operated)
-
-    elif ':FM' in path:
-        return EpicsFM(path, logfn, timeout, human_operated)
-
-    elif ':FPV' in path:
-        return EpicsFPV(path, logfn, timeout, human_operated)
+    elif ':CG' in path:     obj = EpicsCG
+    elif ':CRV' in path:    obj = EpicsCRV
+    elif ':FM' in path:     obj = EpicsFM
+    elif ':FPV' in path:    obj = EpicsFPV
 
     elif ':HTR' in path:
         num = int(path.split(':')[-1].replace('HTR', ''))
         if num in [208, 209, 210, 211, 212, 206, 207, 213, 214]:
-            return EpicsHTRCalibrated(path, logfn, timeout, human_operated)
+            obj = EpicsHTRCalibrated
         else:
-            return EpicsHTR(path, logfn, timeout, human_operated)
+            obj = EpicsHTR
 
-    elif ':IG' in path:
-        return EpicsIG(path, logfn, timeout, human_operated)
+    elif ':IG' in path:     obj = EpicsIG
+    elif ':MFC' in path:    obj = EpicsMFC
+    elif ':PT' in path:     obj = EpicsPT
+    elif ':TP' in path:     obj = EpicsTP
+    elif ':TS' in path:     obj = EpicsTS
+    else:                   obj = EpicsDevice
 
-    elif ':MFC' in path:
-        return EpicsMFC(path, logfn, timeout, human_operated)
-
-    elif ':PT' in path:
-        return EpicsPT(path, logfn, timeout, human_operated)
-
-    elif ':TP' in path:
-        return EpicsTP(path, logfn, timeout, human_operated)
-
-    elif ':TS' in path:
-        return EpicsTS(path, logfn, timeout, human_operated)
-
-    else:
-        return EpicsDevice(path, logfn, timeout, human_operated)
+    return obj(path, logfn, timeout, dry_run)
 
 # base class for simple devices ---------------------------------------------
 class EpicsDevice(object):
@@ -130,7 +123,7 @@ class EpicsDevice(object):
             devicepath (str): top path to device, excluding its components. Ex: UCN2:HE4:FPV212
             timeout (float): timeout for operations in seconds
             logfn (fn handle): function for posting logging messages. Format: fn(message, is_error=False)
-            human_operated (bool): if true, print instructions to stdout instead of operating the cryostat directly. For development and debugging
+            dry_run (bool): if true, log instructions instead of operating the cryostat
     """
 
     # suffixes common to most devices
@@ -154,7 +147,7 @@ class EpicsDevice(object):
     # sleep time after actuating or setting values in seconds
     sleep_time = 0.25
 
-    def __init__(self, devicepath, logfn=None, timeout=10, human_operated=False):
+    def __init__(self, devicepath, logfn=None, timeout=10, dry_run=False):
 
         # check inputs
         if not isinstance(devicepath, str):
@@ -166,7 +159,7 @@ class EpicsDevice(object):
         self.path = devicepath
         self.timeout = timeout
         self.logfn = logfn
-        self.human_operated = human_operated
+        self.dry_run = dry_run
 
         # try to connect to all PVs associated with that device
         self.pv = {key: epics.PV(f'{devicepath}:{key}') for key in self.suffixes}
@@ -185,104 +178,118 @@ class EpicsDevice(object):
             time.sleep(0.001)
             all_connected = all([pv.connected for pv in self.pv.values()])
 
-        # override timeout (turn off if human operated)
-        if human_operated:
-            self.timeout = 0
-
     def _log(self, message, is_error=False):
         if self.logfn is None:
             return
         self.logfn(message, is_error)
 
+    def _switch(self, valve=False, on=True):
+        """Turn device on or off
+
+        Args:
+            valve (bool): if true, print open/closed instead of on/off
+            on (bool): if true turn on, else turn off
+        """
+
+        # check health
+        self.healthcheck()
+
+        # dry run print prefix
+        if self.dry_run:    prefix = '[DRY RUN] '
+        else:               prefix = ''
+
+        # on or off
+        if on:
+            suffix = 'DRVON'
+            attr = 'is_off'
+
+            # valve state
+            if valve:   state = 'open'
+            else:       state = 'turn on'
+
+        else:
+            suffix = 'DRVOFF'
+            attr = 'is_on'
+
+            # valve state
+            if valve:   state = 'close'
+            else:       state = 'turn off'
+
+        # switch with timeout
+        t0 = time.time()
+        while getattr(self, attr):
+
+            # timeout
+            if (self.timeout > 0) and (time.time()-t0 > self.timeout):
+                msg = f'{self.path} timeout while trying to {state}'
+                self._log(msg, True)
+                raise TimeoutError(msg)
+
+            # set
+            if self.dry_run:
+                break
+            else:
+                self.pv[suffix].put(1)
+                time.sleep(self.sleep_time)
+
+        # switch success
+        self._log(f'{prefix}{self.path} {state} success', False)
+
     def healthcheck(self):
         # some simple checks of device health
 
+        if self.dry_run:    prefix = '[DRY RUN] '
+        else:               prefix = ''
+
         if self.is_interlocked and not self.is_bypassed:
-            msg = f'{self.path} is interlocked'
+            msg = f'{prefix}{self.path} is interlocked'
             self._log(msg, True)
-            raise EpicsInterlockError(msg)
+            if not self.dry_run:
+                raise EpicsInterlockError(msg)
 
         if self.is_timeout:
             self._log(f'{self.path} has timed-out', False)
 
             # try to reset
             t0 = time.time()
+            nattempts = 0
             while self.is_timeout:
 
-                # timeout
-                if time.time()-t0 < self.timeout:
-                    msg = f'{self.path} has timed-out and is unresponsive to reset'
-                    self._log(msg, True)
-                    raise EpicsTimeoutError(msg)
+                # try again
+                if (time.time()-t0 < self.reset_check_delay) or (nattempts == 0):
 
-                # reset
-                self.reset()
+                    # too many failed attempts
+                    if nattempts > 1:
+                        msg = f'{self.path} has timed-out and is unresponsive to reset (tried {nattempts} times)'
+                        self._log(msg, True)
+                        raise EpicsTimeoutError(msg)
+
+                    # reset
+                    self.reset()
+                    nattempts += 1
+                    t0 = time.time()
+
+                # sleep before checking again
                 time.sleep(self.sleep_time)
 
             self._log(f'Reset of {self.path} successful')
 
     def off(self):
         """Turn device off"""
-        # check health
-        self.healthcheck()
-
-        # switch with timeout
-        t0 = time.time()
-        while self.is_on:
-
-            # timeout
-            if (self.timeout > 0) and (time.time()-t0 > self.timeout):
-                msg = f'{self.path} timeout while trying to turn off'
-                self._log(msg, True)
-                raise TimeoutError(msg)
-
-            # set
-            if self.human_operated:
-                input(f'Turn off {self.path}')
-            else:
-                self.pv['DRVOFF'].put(1)
-
-            # sleep to allow time to switch
-            time.sleep(self.sleep_time)
-
-        # switch success
-        self._log(f'{self.path} turned off', False)
+        self._switch(valve=False, on=False)
 
     def on(self):
         """Turn device on"""
-
-        # check health
-        self.healthcheck()
-
-        # switch with timeout
-        t0 = time.time()
-        while self.is_off:
-
-            # timeout
-            if (self.timeout > 0) and (time.time()-t0 > self.timeout):
-                msg = f'{self.path} timeout while trying to turn on'
-                self._log(msg, True)
-                raise TimeoutError(msg)
-
-            # set
-            if self.human_operated:
-                input(f'Turn on {self.path}')
-            else:
-                self.pv['DRVON'].put(1)
-
-            # sleep to allow time to switch
-            time.sleep(self.sleep_time)
-
-        # switch success
-        self._log(f'{self.path} turned on', False)
+        self._switch(valve=False, on=True)
 
     def reset(self):
         """Reset device"""
-        if self.human_operated:
-            input(f'Reset {self.path}')
+        if self.dry_run:
+            prefix = '[DRY RUN] '
         else:
+            prefix = ''
             self.pv['RST'].put(1)
-        self._log(f'{self.path} reset', False)
+        self._log(f'{prefix}{self.path} reset', False)
 
     def set(self, setpoint):
         """Set the setpoint variable pointed to by self.setpoint_name"""
@@ -295,6 +302,10 @@ class EpicsDevice(object):
 
         # run health check
         self.healthcheck()
+
+        # dry run print prefix
+        if self.dry_run:    prefix = '[DRY RUN] '
+        else:               prefix = ''
 
         # check setpoint limits
         if setpoint < self.pv[self.setpoint_name].lower_ctrl_limit or \
@@ -313,14 +324,14 @@ class EpicsDevice(object):
                 raise TimeoutError(msg)
 
             # set
-            if self.human_operated:
-                input(f'Set {self.setpoint_name} to {setpoint} {self.setpoint_units}')
+            if self.dry_run:
+                break
             else:
                 self.pv[self.setpoint_name].put(setpoint)
             time.sleep(self.sleep_time)
 
         # set success
-        self._log(f"{self.path}:{self.setpoint_name} set to {setpoint} {self.setpoint_units}")
+        self._log(f"{prefix}{self.path}:{self.setpoint_name} set to {setpoint} {self.setpoint_units}")
 
     # dynamic properties
     @property
@@ -351,11 +362,11 @@ class EpicsAV(EpicsDevice):
 
     def close(self):
         """synonym for off, but for valves"""
-        self.off()
+        self._switch(valve=True, on=False)
 
     def open(self):
         """synonym for on, but for valves"""
-        self.on()
+        self._switch(valve=True, on=True)
 
     @property
     def is_open(self):          return self.is_on
@@ -367,11 +378,11 @@ class EpicsAVNormOpen(EpicsAV):
 
     def close(self):
         """synonym for off, but for valves"""
-        self.on()
+        self._switch(valve=True, on=True)
 
     def open(self):
         """synonym for on, but for valves"""
-        self.off()
+        self._switch(valve=True, on=False)
 
 class EpicsCG(EpicsDevice):
     readback_name = 'RDVAC'
@@ -418,6 +429,10 @@ class EpicsHTR(EpicsDevice):
         # check health
         self.healthcheck()
 
+        # dry run print prefix
+        if self.dry_run:    prefix = '[DRY RUN] '
+        else:               prefix = ''
+
         # switch with timeout
         t0 = time.time()
         while self.is_autoenable:
@@ -428,18 +443,22 @@ class EpicsHTR(EpicsDevice):
                 raise TimeoutError(msg)
 
             # set
-            if self.human_operated:
-                input(f'Turn off {self.path} autocontrol')
+            if self.dry_run:
+                break
             else:
                 self.pv['CMD'].put(1)
-            time.sleep(self.sleep_time)
+                time.sleep(self.sleep_time)
 
         # success
-        self._log(f'{self.path} autocontrol disabled')
+        self._log(f'{prefix}{self.path} autocontrol disabled')
 
     def enable_auto(self):
         # check health
         self.healthcheck()
+
+        # dry run print prefix
+        if self.dry_run:    prefix = '[DRY RUN] '
+        else:               prefix = ''
 
         # switch with timeout
         t0 = time.time()
@@ -451,14 +470,14 @@ class EpicsHTR(EpicsDevice):
                 raise TimeoutError(msg)
 
             # set
-            if self.human_operated:
-                input(f'Turn on {self.path} autocontrol')
+            if self.dry_run:
+                break
             else:
                 self.pv['CMD'].put(1)
-            time.sleep(self.sleep_time)
+                time.sleep(self.sleep_time)
 
         # success
-        self._log(f'{self.path} autocontrol enabled')
+        self._log(f'{prefix}{self.path} autocontrol enabled')
 
     @property
     def is_autoenable(self):    return bool(self.pv['STAT.B8'].get())
@@ -525,6 +544,10 @@ class EpicsTP(EpicsDevice):
         """Toggle low speed state"""
         self.healthcheck()
 
+        # dry run print prefix
+        if self.dry_run:    prefix = '[DRY RUN] '
+        else:               prefix = ''
+
         target_state = not self.is_low
         t0 = time.time()
         while self.is_low != target_state:
@@ -533,16 +556,16 @@ class EpicsTP(EpicsDevice):
                 self._log(msg, True)
                 raise TimeoutError(msg)
 
-            if self.human_operated:
-                input(f'Toggle {self.path} low speed state')
+            if self.dry_run:
+                break
             else:
                 self.pv['DRVLSPD'].put(1)
-            time.sleep(self.sleep_time)
+                time.sleep(self.sleep_time)
 
         if target_state:
-            self._log(f'{self.path} put into low speed state')
+            self._log(f'{prefix}{self.path} put into low speed state')
         else:
-            self._log(f'{self.path} put into high speed state')
+            self._log(f'{prefix}{self.path} put into high speed state')
 
     @property
     def is_atspeed(self):       return bool(self.pv['STATATSPD'].get())
@@ -574,8 +597,8 @@ class EpicsAV020(EpicsAV):
 
     other_suffixes = ('STAT.B8', 'CMD')
 
-    def __init__(self, devicepath, logfn=None, timeout=10):
-        super().__init__(devicepath, logfn=logfn, timeout=timeout)
+    def __init__(self, devicepath, logfn=None, timeout=10, dry_run=False):
+        super().__init__(devicepath, logfn=logfn, timeout=timeout, dry_run=dry_run)
 
         # connect to other devices, specific to particular AV
         self.pv['PT001High'] = epics.PV(f'UCN2:ISO:PT001:SETTHRESH1')
@@ -598,6 +621,10 @@ class EpicsAV020(EpicsAV):
         # check health
         self.healthcheck()
 
+        # dry run print prefix
+        if self.dry_run:    prefix = '[DRY RUN] '
+        else:               prefix = ''
+
         # switch with timeout
         t0 = time.time()
         while not self.is_autoenable:
@@ -608,18 +635,22 @@ class EpicsAV020(EpicsAV):
                 raise TimeoutError(msg)
 
             # set
-            if self.human_operated:
-                input(f'Turn on {self.path} autocontrol')
+            if self.dry_run:
+                break
             else:
                 self.pv['CMD'].put(1)
-            time.sleep(self.sleep_time)
+                time.sleep(self.sleep_time)
 
         # success
-        self._log(f'{self.path} autocontrol enabled')
+        self._log(f'{prefix}{self.path} autocontrol enabled')
 
     def disable_auto(self):
         # check health
         self.healthcheck()
+
+        # dry run print prefix
+        if self.dry_run:    prefix = '[DRY RUN] '
+        else:               prefix = ''
 
         # switch with timeout
         t0 = time.time()
@@ -631,22 +662,22 @@ class EpicsAV020(EpicsAV):
                 raise TimeoutError(msg)
 
             # set
-            if self.human_operated:
-                input(f'Turn off {self.path} autocontrol')
+            if self.dry_run:
+                break
             else:
                 self.pv['CMD'].put(1)
-            time.sleep(self.sleep_time)
+                time.sleep(self.sleep_time)
 
         # success
-        self._log(f'{self.path} autocontrol disabled')
+        self._log(f'{prefix}{self.path} autocontrol disabled')
 
 class EpicsAV021(EpicsAV):
     """Automatic Valve UCN2:ISO:AV021"""
 
     other_suffixes = ('STAT.B8', 'CMD')
 
-    def __init__(self, devicepath, logfn=None, timeout=10):
-        super().__init__(devicepath, logfn=logfn, timeout=timeout)
+    def __init__(self, devicepath, logfn=None, timeout=10, dry_run=False):
+        super().__init__(devicepath, logfn=logfn, timeout=timeout, dry_run=dry_run)
 
         # connect to other devices, specific to particular AV
         self.pv['PT001High'] = epics.PV(f'UCN2:ISO:PT001:SETTHRESH3')
@@ -669,6 +700,10 @@ class EpicsAV021(EpicsAV):
         # check health
         self.healthcheck()
 
+        # dry run print prefix
+        if self.dry_run:    prefix = '[DRY RUN] '
+        else:               prefix = ''
+
         # switch with timeout
         t0 = time.time()
         while not self.is_autoenable:
@@ -679,18 +714,22 @@ class EpicsAV021(EpicsAV):
                 raise TimeoutError(msg)
 
             # set
-            if self.human_operated:
-                input(f'Turn on {self.path} autocontrol')
+            if self.dry_run:
+                break
             else:
                 self.pv['CMD'].put(1)
-            time.sleep(self.sleep_time)
+                time.sleep(self.sleep_time)
 
         # success
-        self._log(f'{self.path} autocontrol enabled')
+        self._log(f'{prefix}{self.path} autocontrol enabled')
 
     def disable_auto(self):
         # check health
         self.healthcheck()
+
+        # dry run print prefix
+        if self.dry_run:    prefix = '[DRY RUN] '
+        else:               prefix = ''
 
         # switch with timeout
         t0 = time.time()
@@ -702,11 +741,11 @@ class EpicsAV021(EpicsAV):
                 raise TimeoutError(msg)
 
             # set
-            if self.human_operated:
-                input(f'Turn off {self.path} autocontrol')
+            if self.dry_run:
+                break
             else:
                 self.pv['CMD'].put(1)
-            time.sleep(self.sleep_time)
+                time.sleep(self.sleep_time)
 
         # success
-        self._log(f'{self.path} autocontrol disabled')
+        self._log(f'{prefix}{self.path} autocontrol disabled')

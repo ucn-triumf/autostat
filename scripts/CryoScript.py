@@ -20,19 +20,26 @@ class CryoScript(object):
         devices_off (list): initial checklist of names (no prefix or suffix). Pass if off/closed
         devices_on (list): initial checklist of names (no prefix or suffix). Pass if on/open
         run_state: defines what state the system is in to better put the cryostat in a safe operation mode upon failure
+
+    Args:
+        timeout (int): duration in seconds before raising timeout exeception
+        dry_run (bool): if true, instead of performing actions print action to screen
+
     """
 
     # variables for initial checks of cryo state
 
     # lists of status variables names
-    devices_off = []        # pass if False
-    devices_on = []         # pass if True
+    devices_off = []
+    devices_on = []
+    devices_closed = []
+    devices_open = []
 
     # dict of name:threshold
     devices_below = {}      # pass if readback < threshold
     devices_above = {}      # pass if readback > threshold
 
-    def __init__(self, timeout=10, human_operated=False):
+    def __init__(self, timeout=10, dry_run=False):
 
         scriptname = __class__.__name__
 
@@ -53,9 +60,9 @@ class CryoScript(object):
         self.client = midas.client.MidasClient(scriptname)
 
         # initialization
-        self.devices = EpicsDeviceCollection(self.log, timeout=timeout, human_operated=False)
+        self.devices = EpicsDeviceCollection(self.log, timeout=timeout, dry_run=dry_run)
         self.timeout = timeout
-        self.human_operated = human_operated
+        self.dry_run = dry_run
         self.run_state = None
 
     def __enter__(self):
@@ -80,25 +87,53 @@ class CryoScript(object):
     def check_status(self):
         """Verify that the state of the system is as expected"""
 
+        # dry run prefix
+        if self.dry_run:    prefix = '[DRY RUN] '
+        else:               prefix = ''
+
         # devices should be on
         for name in self.devices_on:
             if self.devices[name].is_off:
-                raise RuntimeError(f'{name} is on/open when it should be off/closed!')
+                msg = f'{prefix}{name} is off when it should be on!'
+                if self.dry_run:    self.log(msg)
+                else:               raise RuntimeError(msg)
 
         # devices should be off
         for name in self.devices_off:
             if self.devices[name].is_on:
-                raise RuntimeError(f'{name} is off/closed when it should be on/open!')
+                msg = f'{prefix}{name} is on when it should be off!'
+                if self.dry_run:    self.log(msg)
+                else:               raise RuntimeError(msg)
+
+        # devices should be closed
+        for name in self.devices_closed:
+            if self.devices[name].is_open:
+                msg = f'{prefix}{name} is open when it should be closed!'
+                if self.dry_run:    self.log(msg)
+                else:               raise RuntimeError(msg)
+
+        # devices should be open
+        for name in self.devices_open:
+            if self.devices[name].is_closed:
+                msg = f'{prefix}{name} is closed when it should be open!'
+                if self.dry_run:    self.log(msg)
+                else:               raise RuntimeError(msg)
 
         # devices below threshold
         for name, thresh in self.devices_below.items():
-            if self.devices[name].readback > thresh:
-                raise RuntimeError(f'{name} is above threshold ({self.devices[name].readback:.3f} > {thresh:.3f})')
+            val = self.devices[name].readback
+            if val > thresh:
+                msg = f'{prefix}{name} is above threshold ({val:.3f} > {thresh:.3f})'
+                if self.dry_run:    self.log(msg)
+                else:               raise RuntimeError(msg)
 
         # devices above threshold
         for name, thresh in self.devices_above.items():
-            if self.devices[name].readback < thresh:
-                raise RuntimeError(f'{name} is below threshold ({self.devices[name].readback:.3f} < {thresh:.3f})')
+            val = self.devices[name].readback
+            if val < thresh:
+                msg = f'{prefix}{name} is below threshold ({val:.3f} < {thresh:.3f})'
+                if self.dry_run:    self.log(msg)
+                else:               raise RuntimeError(msg)
 
         # bad exit
         self.log(f'All checks passed', False)
@@ -118,15 +153,29 @@ class CryoScript(object):
         pass
 
     def log(self, msg, is_error=False):
+
+        # reformat msg
+        msg_orig = msg
+        msg = f'[{self.name}] {msg}'
+
+        # dry run
+        if self.dry_run:
+            print(msg)
+
         # send logging messages
         if is_error:
-            self.logger.error(f'[{self.name}] {msg}')
-            self.client.trigger_internal_alarm(self.name, msg,
-                                        default_alarm_class='Alarm')
-        else:
-            self.logger.info(f'[{self.name}] {msg}')
+            self.logger.error(msg)
 
-        self.client.msg(f'[{self.name}] {msg}', is_error=is_error)
+            # no alarms in a dry run
+            if not self.dry_run:
+                self.client.trigger_internal_alarm(self.name, msg_orig,
+                                                   default_alarm_class='Alarm')
+        else:
+            self.logger.info(msg)
+
+        # no midas messages on dry run
+        if not self.dry_run:
+            self.client.msg(msg, is_error=is_error)
 
     def run(self):
         """Run the script
@@ -148,18 +197,21 @@ class CryoScript(object):
             timeout (int): timeout in seconds for setting the variable
             exit_strategy: passed to self.exit
         """
+
+        # dry run print
+        if self.dry_run:
+            self.log(f'[DRY RUN] Set {path} to {value}')
+            return
+
         t0 = time.time()
         while self.client.odb_get(path) != value:
             # timeout
             if time.time()-t0 > timeout:
                 raise TimeoutError(f'Attempted to set {path} for {timeout} seconds, stuck at {client.odb_get(path)}')
 
-            if self.human_operated:
-                input(f'Set {path} to {value}')
-            else:
-                self.client.odb_set(path, value)
-
+            self.client.odb_set(path, value)
             time.sleep(1)
+
         self.log(f'Set {path} to {value}')
 
     def wait(self, condition, sleep_dt=60, print_dt=900):
@@ -170,6 +222,12 @@ class CryoScript(object):
             sleep_dt (int): number of seconds to sleep before checking the condition again
             print_dt (int): number of seconds between print statement
         """
+
+        # dry run print
+        if self.dry_run:
+            self.log('[DRY RUN] Wait condition bypassed')
+            return
+
         t0 = 0
         while not condition():
             if (time.time()-t0) > print_dt:
@@ -189,14 +247,19 @@ class CryoScript(object):
         """
         device = self.devices[name]
 
+        if self.dry_run:
+            dry = '[DRY RUN] '
+        else:
+            dry = ''
+
         if device.readback > thresh:
-            self.log(f'Waiting for {device.path} to drop above threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
+            self.log(f'{dry}Waiting for {device.path} to drop above threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
 
             self.wait(condition = lambda : device.readback < thresh,
                       sleep_dt=sleep_dt,
                       print_dt=print_dt)
 
-        self.log(f'{device.path} ({device.readback:.2f} {device.readback_units}) satisfies threshold of {thresh} {device.readback_units}')
+        self.log(f'{dry}{device.path} ({device.readback:.2f} {device.readback_units}) satisfies threshold of {thresh} {device.readback_units}')
 
     def wait_until_lessthan(self, name, thresh, sleep_dt=60, print_dt=900):
         """Block program execution until device readback is below the theshold
@@ -209,11 +272,16 @@ class CryoScript(object):
         """
         device = self.devices[name]
 
+        if self.dry_run:
+            dry = '[DRY RUN] '
+        else:
+            dry = ''
+
         if device.readback > thresh:
-            self.log(f'Waiting for {device.path} to drop below threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
+            self.log(f'{dry}Waiting for {device.path} to drop below threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
 
             self.wait(condition = lambda : device.readback < thresh,
                       sleep_dt=sleep_dt,
                       print_dt=print_dt)
 
-        self.log(f'{device.path} ({device.readback:.2f} {device.readback_units}) satisfies threshold of {thresh} {device.readback_units}')
+        self.log(f'{dry}{device.path} ({device.readback:.2f} {device.readback_units}) satisfies threshold of {thresh} {device.readback_units}')
