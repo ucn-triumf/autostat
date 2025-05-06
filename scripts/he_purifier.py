@@ -213,9 +213,15 @@ class StartRecovery(CryoScript):
                 else:
                     raise RuntimeError(msg)
 
+    def exit(self):
+        if self.run_state == 'av auto disabled':
+            for av in ['AV020', 'AV021']:
+                self.devices[av].enable_auto()
+
     def run(self):
 
         # av autocontrol off
+        self.run_state = 'av auto disabled'
         for av in ['AV020', 'AV021']:
             self.devices[av].disable_auto()
 
@@ -307,7 +313,7 @@ class StartRegeneration(CryoScript):
                     'HTR012', 'HTR105', 'HTR107']
 
     def exit(self):
-        if self.run_state == 'startup':
+        if 'startup' in self.run_state:
             self.devices.BP002.off()
             self.devices.CP001.on()
             self.devices.CP101.on()
@@ -331,19 +337,19 @@ class StartRegeneration(CryoScript):
             elif self.dry_run:
                 self.log(f'[DRY RUN] {av} is closed as it should')
 
-        # open purifier to atmosphere
-        self.run_state = None   # safe operating mode, disable exit strategy
-        self.devices.AV050.open()
-        self.devices.AV051.open()
-
         # turn off pumps
-        self.devices.MP001.off()
         self.devices.MP002.off()
+        self.devices.MP001.off()
 
         # close other valves in the panel
         for av in ['AV008', 'AV010', 'AV011', 'AV012', 'AV014', 'AV019', 'AV020',
                    'AV023', 'AV027', 'AV029']:
             self.devices[av].close()
+
+        # open purifier to atmosphere
+        self.run_state = None   # safe operating mode, disable exit strategy
+        self.devices.AV050.open()
+        self.devices.AV051.open()
 
         # set heaters
         for htr in ['HTR010', 'HTR012', 'HTR105', 'HTR107']:
