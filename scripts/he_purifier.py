@@ -69,16 +69,12 @@ class StopCooling(CryoScript):
             raise RuntimeError(f'{pid} setpoint ({setpoint:.1f}K) is not as it should be! Undefined system state, exiting.')
 
     def run(self, temperature):
-        self.log(f'Started {self.__class__.__name__}')
-        self.check_status()
 
         # wait for the temperature to drop
         self.wait_until_lessthan('TS510', temperature+0.1)
         self.wait_until_lessthan('TS511', temperature+0.1)
         self.wait_until_lessthan('TS512', temperature+0.1)
         self.wait_until_lessthan('TS513', temperature+0.1)
-
-        self.log(f'System cooled to {temperature}K')
 
 class StartCirculation(CryoScript):
 
@@ -176,8 +172,64 @@ class StartCirculation(CryoScript):
                 self.log(msg, True)
                 self.devices[av].open()
 
-class StopCirculation(CryoScript):
-    pass
+class StartRegeneration(CryoScript):
+    devices_off = [ 'AV007', 'AV009', 'AV013', 'AV017', 'AV018', 'AV022', 'AV024',
+                    'AV025', 'AV026', 'AV028', 'AV030', 'AV031', 'AV032', 'AV034',
+                    'BP001', 'BP002']
+
+    devices_on =  [ 'AV008', 'AV010', 'AV011', 'AV012', 'AV014', 'AV019', 'AV020',
+                    'AV023', 'AV027', 'AV029', 'CP001', 'CP101', 'MP001', 'MP002',
+                    'MFC001', 'HTR010', 'HTR012', 'HTR105', 'HTR107']
+
+    def exit(self):
+        if self.run_state == 'startup':
+            self.devices.BP002.off()
+            self.devices.CP001.on()
+            self.devices.CP101.on()
+
+    def run(self, temperature=180, fm208_at_least=5):
+
+        self.run_state = 'startup'
+        self.devices.BP002.on()
+        self.devices.CP001.off()
+        self.devices.CP101.off()
+
+        self.wait_until_lessthan('CG003', 0.2)
+
+        # double check that security valves are still closed
+        for av in ['AV025', 'AV024', 'AV032']:
+            if self.devices[av].is_open:
+                raise RuntimeError(f'{av} is open when it should be closed')
+
+        # open purifier to atmosphere
+        self.run_state = None   # safe operating mode, disable exit strategy
+        self.devices.AV050.open()
+        self.devices.AV051.open()
+
+        # turn off pumps
+        self.devices.MP001.off()
+        self.devices.MP002.off()
+
+        # close other valves in the panel
+        for av in ['AV008', 'AV010', 'AV011', 'AV012', 'AV014', 'AV019', 'AV020',
+                   'AV023', 'AV027', 'AV029']:
+            self.devices[av].close()
+
+        # set heaters
+        for htr in ['HTR010', 'HTR012', 'HTR105', 'HTR107']:
+            self.devices[htr].set(0)
+
+            # double check on status - if it fails no risk to system, but will be slow
+            if self.devices[htr].is_off:
+                raise RuntimeError(f'{htr} is off!')
+
+        # enable autostat control
+        for pid in ['PID_PUR_ISO70K', 'PID_PUR_ISO20K', 'PID_PUR_HE20K', 'PID_PUR_HE70K']:
+            self.odb_set(f'/Equipment/{pid}/Settings/target_setpoint', temperature)
+            self.odb_set(f'/Equipment/{pid}/Settings/Enabled', True)
+
+        # wait for FM208 to start increasing
+        self.wait_until_greaterthan('FM208', fm208_at_least)
 
 class StopRegeneration(CryoScript):
     devices_off = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV010',
@@ -191,7 +243,6 @@ class StopRegeneration(CryoScript):
     def run(self, fm208_thresh):
 
         # Block execution until FM208 is below threshold
-        self.run_state = 'waiting'
         self.wait_until_lessthan('FM208', fm208_thresh)
 
         # turn off autostat enable
@@ -213,6 +264,9 @@ class StopRegeneration(CryoScript):
 
 # RUN SCRIPT ==============================================================
 # For best protections of cryostat on error, run inside of "with" statement
+
+with StartRegeneration(human_operated=True) as script:
+    script(temperature=180)
 
 with StopRegeneration() as script:
     script(fm208_thresh = 0.45)
