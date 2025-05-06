@@ -175,6 +175,9 @@ class CryoScript(object):
         """
         pass
 
+    def get_odb(self, path):
+        return self.client.odb_get(path)
+
     def log(self, msg, is_error=False):
 
         # reformat msg
@@ -280,7 +283,7 @@ class CryoScript(object):
                       sleep_dt=sleep_dt,
                       print_dt=print_dt)
 
-        self.log(f'{dry}{device.path} ({device.readback:.2f} {device.readback_units}) satisfies threshold of {thresh} {device.readback_units}')
+        self.log(f'{dry}{device.path} readback ({device.readback:.2f} {device.readback_units}) is greater than threshold of {thresh} {device.readback_units}')
 
     def wait_until_lessthan(self, name, thresh, sleep_dt=60, print_dt=900):
         """Block program execution until device readback is below the theshold
@@ -303,4 +306,4 @@ class CryoScript(object):
                       sleep_dt=sleep_dt,
                       print_dt=print_dt)
 
-        self.log(f'{dry}{device.path} ({device.readback:.2f} {device.readback_units}) satisfies threshold of {thresh} {device.readback_units}')
+        self.log(f'{dry}{device.path} readback ({device.readback:.2f} {device.readback_units}) is less than threshold of {thresh} {device.readback_units}')

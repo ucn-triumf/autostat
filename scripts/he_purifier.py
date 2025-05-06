@@ -62,12 +62,16 @@ class StopCooling(CryoScript):
         # check enable status of PID autostat
         for pid in ['PID_PUR_ISO70K', 'PID_PUR_ISO20K', 'PID_PUR_HE20K', 'PID_PUR_HE70K']:
             if not client.odb_get(f'/Equipment/{pid}/Settings/Enabled'):
-                raise RuntimeError(f'{pid} is not enabled when it should be! Undefined system state, exiting.')
+                msg = f'{pid} is not enabled when it should be! Undefined system state, exiting.'
+                if self.dry_run:    self.log(f'[DRY RUN] {msg}')
+                else:               raise RuntimeError(msg)
 
         # check setpoints of PID autostat
         setpoint = client.odb_get(f'/Equipment/{pid}/Settings/target_setpoint')
         if setpoint != temperature:
-            raise RuntimeError(f'{pid} setpoint ({setpoint:.1f}K) is not as it should be! Undefined system state, exiting.')
+            msg = f'{pid} setpoint ({setpoint:.1f}K) is not as it should be! Undefined system state, exiting.'
+            if self.dry_run:    self.log(f'[DRY RUN] {msg}')
+            else:               raise RuntimeError(msg)
 
     def run(self, temperature):
 
@@ -174,14 +178,71 @@ class StartCirculation(CryoScript):
                 self.log(msg, True)
                 self.devices[av].open()
 
+class StopRecovery(CryoScript):
+    devices_open = ['AV008', 'AV010', 'AV011', 'AV012', 'AV014', 'AV019', 'AV020',
+                    'AV023', 'AV024', 'AV025', 'AV026', 'AV027', 'AV029', ]
+
+    devices_closed = ['AV007', 'AV009', 'AV013', 'AV015', 'AV016', 'AV017', 'AV018',
+                      'AV021', 'AV022', 'AV028', 'AV030', 'AV031',
+                      'AV032', 'AV034',]
+
+    devices_off = ['BP002']
+
+    devices_on =  [ 'BP001', 'CP001', 'CP101', 'MP001', 'MP002', 'MFC001', 'HTR010',
+                    'HTR012', 'HTR105', 'HTR107']
+
+    def check_status(self):
+        super().check_status()
+
+        # dry run prefix
+        if self.dry_run: prefix = '[DRY RUN] '
+        else:            prefix = ''
+
+        # check AV autocontrol status
+        for av in ['AV020', 'AV021']:
+            if self.devices[av].is_autoenable:
+                msg = f'{prefix}{av} autocontrol is enabled when it should be disabled'
+                if self.dry_run:
+                    self.log(msg)
+                else:
+                    raise RuntimeError(msg)
+
+        # check autostat enable (should be off)
+        pids = ['PID_PUR_ISO70K', 'PID_PUR_ISO20K', 'PID_PUR_HE20K', 'PID_PUR_HE70K']
+        for pid in pids:
+            if self.get_odb(f'/Equipment/{pid}/Settings/Enabled'):
+                msg = f'{prefix}{pid} is enabled when it should be disabled'
+                if self.dry_run:
+                    self.log(msg)
+                else:
+                    raise RuntimeError(msg)
+
+        # check that heaters are zero
+        for htr in ['HTR010', 'HTR012', 'HTR105', 'HTR107']:
+            if self.devices[htr].readback != 0:
+                msg = f'{prefix}{htr} should have setpoint zero, but is {self.devices[htr].readback} {self.devices[htr].readback_units}'
+                if self.dry_run:
+                    self.log(msg)
+                else:
+                    raise RuntimeError(msg)
+
+    def run(self, pt_thresh=3):
+
+        self.wait_until_lessthan('PT004', pt_thresh)
+        self.wait_until_lessthan('PT005', pt_thresh)
+
+        self.devices.BP001.off()
+        self.devices.AV024.close()
+        self.devices.AV025.close()
+
 class StartRegeneration(CryoScript):
 
     devices_open = ['AV008', 'AV010', 'AV011', 'AV012', 'AV014', 'AV019', 'AV020',
-                    'AV023', 'AV024', 'AV025','AV027', 'AV029', ]
+                    'AV023', 'AV026', 'AV027', 'AV029', ]
 
     devices_closed = ['AV007', 'AV009', 'AV013', 'AV015', 'AV016', 'AV017', 'AV018',
-                      'AV021', 'AV022', 'AV026', 'AV028', 'AV030', 'AV031',
-                      'AV032', 'AV034',]
+                      'AV021', 'AV022', 'AV024', 'AV025', 'AV028', 'AV030',
+                      'AV031', 'AV032', 'AV034',]
 
     devices_off = ['BP001', 'BP002']
 
@@ -264,8 +325,7 @@ class StopRegeneration(CryoScript):
             self.set_odb(f'/Equipment/{pid}/Settings/Enabled', False)
 
         # set heater setpoints to zero
-        htrs = ['HTR010', 'HTR012', 'HTR105', 'HTR107']
-        for htr in htrs:
+        for htr in ['HTR010', 'HTR012', 'HTR105', 'HTR107']:
             self.devices[htr].set(0)
 
         # Close valves to atmosphere
@@ -278,11 +338,15 @@ class StopRegeneration(CryoScript):
 # RUN SCRIPT ==============================================================
 # For best protections of cryostat on error, run inside of "with" statement
 
-with StartRegeneration(dry_run=True) as script:
-   script(temperature=180)
+with StopRecovery(dry_run=True) as script:
+   script(pt_thresh=3)
 
-# with StopRegeneration(dry_run=True) as script:
+# with StartRegeneration(dry_run=False) as script:
+#    script(temperature=180)
+
+# with StopRegeneration(dry_run=False) as script:
 #     script(fm208_thresh = 0.25)
 
-# with StartCooling(dry_run=True) as script:
+# with StartCooling(dry_run=False) as script:
 #     script(temperature = 45)
+
