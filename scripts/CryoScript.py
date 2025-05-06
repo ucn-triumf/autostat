@@ -54,7 +54,16 @@ class CryoScript(object):
                                             encoding=None, delay=False)
         rfile_handler.setFormatter(log_formatter)
         rfile_handler.setLevel(logging.INFO)
-        self.logger.addHandler(rfile_handler)
+
+        # only add handler if it doesn't exist already
+        add_handler = True
+        for handler in self.logger.handlers:
+            if handler.baseFilename == rfile_handler.baseFilename:
+                add_handler = False
+                break
+
+        if add_handler:
+            self.logger.addHandler(rfile_handler)
 
         # connect to midas client
         self.client = midas.client.MidasClient(scriptname)
@@ -92,32 +101,42 @@ class CryoScript(object):
         else:               prefix = ''
 
         # devices should be on
-        for name in self.devices_on:
+        for name in sorted(self.devices_on):
             if self.devices[name].is_off:
-                msg = f'{prefix}{name} is off when it should be on!'
+                msg = f'{prefix}{name} is off when it should be on'
                 if self.dry_run:    self.log(msg)
                 else:               raise RuntimeError(msg)
+
+            elif self.dry_run:
+                self.log(f'{prefix}{name} is on, as it should')
 
         # devices should be off
-        for name in self.devices_off:
+        for name in sorted(self.devices_off):
             if self.devices[name].is_on:
-                msg = f'{prefix}{name} is on when it should be off!'
+                msg = f'{prefix}{name} is on when it should be off'
                 if self.dry_run:    self.log(msg)
                 else:               raise RuntimeError(msg)
+
+            elif self.dry_run:
+                self.log(f'{prefix}{name} is off, as it should')
 
         # devices should be closed
-        for name in self.devices_closed:
+        for name in sorted(self.devices_closed):
             if self.devices[name].is_open:
-                msg = f'{prefix}{name} is open when it should be closed!'
+                msg = f'{prefix}{name} is open when it should be closed'
                 if self.dry_run:    self.log(msg)
                 else:               raise RuntimeError(msg)
+            elif self.dry_run:
+                self.log(f'{prefix}{name} is closed, as it should')
 
         # devices should be open
-        for name in self.devices_open:
+        for name in sorted(self.devices_open):
             if self.devices[name].is_closed:
-                msg = f'{prefix}{name} is closed when it should be open!'
+                msg = f'{prefix}{name} is closed when it should be open'
                 if self.dry_run:    self.log(msg)
                 else:               raise RuntimeError(msg)
+            elif self.dry_run:
+                self.log(f'{prefix}{name} is open, as it should')
 
         # devices below threshold
         for name, thresh in self.devices_below.items():
@@ -126,6 +145,8 @@ class CryoScript(object):
                 msg = f'{prefix}{name} is above threshold ({val:.3f} > {thresh:.3f})'
                 if self.dry_run:    self.log(msg)
                 else:               raise RuntimeError(msg)
+            elif self.dry_run:
+                self.log(f'{prefix}{name} is below threshold ({val:.3f} < {thresh:.3f}), as it should')
 
         # devices above threshold
         for name, thresh in self.devices_above.items():
@@ -134,6 +155,8 @@ class CryoScript(object):
                 msg = f'{prefix}{name} is below threshold ({val:.3f} < {thresh:.3f})'
                 if self.dry_run:    self.log(msg)
                 else:               raise RuntimeError(msg)
+            elif self.dry_run:
+                self.log(f'{prefix}{name} is above threshold ({val:.3f} > {thresh:.3f}), as it should')
 
         # bad exit
         self.log(f'All checks passed', False)
@@ -247,15 +270,13 @@ class CryoScript(object):
         """
         device = self.devices[name]
 
-        if self.dry_run:
-            dry = '[DRY RUN] '
-        else:
-            dry = ''
+        if self.dry_run:    dry = '[DRY RUN] '
+        else:               dry = ''
 
-        if device.readback > thresh:
-            self.log(f'{dry}Waiting for {device.path} to drop above threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
+        if device.readback < thresh:
+            self.log(f'{dry}Waiting for {device.path} to rise above threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
 
-            self.wait(condition = lambda : device.readback < thresh,
+            self.wait(condition = lambda : device.readback > thresh,
                       sleep_dt=sleep_dt,
                       print_dt=print_dt)
 
@@ -272,10 +293,8 @@ class CryoScript(object):
         """
         device = self.devices[name]
 
-        if self.dry_run:
-            dry = '[DRY RUN] '
-        else:
-            dry = ''
+        if self.dry_run:    dry = '[DRY RUN] '
+        else:               dry = ''
 
         if device.readback > thresh:
             self.log(f'{dry}Waiting for {device.path} to drop below threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')

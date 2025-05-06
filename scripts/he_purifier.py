@@ -177,10 +177,12 @@ class StartCirculation(CryoScript):
 class StartRegeneration(CryoScript):
 
     devices_open = ['AV008', 'AV010', 'AV011', 'AV012', 'AV014', 'AV019', 'AV020',
-                    'AV023', 'AV027', 'AV029', ]
+                    'AV023', 'AV024', 'AV025','AV027', 'AV029', ]
 
-    devices_closed = ['AV007', 'AV009', 'AV013', 'AV017', 'AV018', 'AV022', 'AV024',
-                      'AV025', 'AV026', 'AV028', 'AV030', 'AV031', 'AV032', 'AV034',]
+    devices_closed = ['AV007', 'AV009', 'AV013', 'AV015', 'AV016', 'AV017', 'AV018',
+                      'AV021', 'AV022', 'AV026', 'AV028', 'AV030', 'AV031',
+                      'AV032', 'AV034',]
+
     devices_off = ['BP001', 'BP002']
 
     devices_on =  [ 'CP001', 'CP101', 'MP001', 'MP002', 'MFC001', 'HTR010',
@@ -198,14 +200,18 @@ class StartRegeneration(CryoScript):
         self.devices.BP002.on()
         self.devices.CP001.off()
         self.devices.CP101.off()
-        return
-
         self.wait_until_lessthan('CG003', 0.2)
 
         # double check that security valves are still closed
         for av in ['AV025', 'AV024', 'AV032']:
             if self.devices[av].is_open:
-                raise RuntimeError(f'{av} is open when it should be closed')
+                msg = f'{av} is open when it should be closed'
+                if self.dry_run:
+                    self.log('[DRY RUN] ' + msg)
+                else:
+                    raise RuntimeError(msg)
+            elif self.dry_run:
+                self.log(f'[DRY RUN] {av} is closed as it should')
 
         # open purifier to atmosphere
         self.run_state = None   # safe operating mode, disable exit strategy
@@ -275,8 +281,8 @@ class StopRegeneration(CryoScript):
 with StartRegeneration(dry_run=True) as script:
    script(temperature=180)
 
-with StopRegeneration(dry_run=True) as script:
-    script(fm208_thresh = 0.25)
+# with StopRegeneration(dry_run=True) as script:
+#     script(fm208_thresh = 0.25)
 
-with StartCooling(dry_run=True) as script:
-    script(temperature = 45)
+# with StartCooling(dry_run=True) as script:
+#     script(temperature = 45)
