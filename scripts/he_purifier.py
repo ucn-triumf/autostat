@@ -9,6 +9,8 @@ from CryoScript import CryoScript
 
 # TODO: Make elog entry on completion?
 # TODO: stop_circulation should check for clogs
+# TODO: Wait condition double print is too quick, reduce to one
+# TODO: Wait condition could use a better printout
 
 # make scripts ------------------------------------------------------------
 class StartCooling(CryoScript):
@@ -182,6 +184,41 @@ class StartCirculation(CryoScript):
                 self.log(msg, True)
                 self.devices[av].open()
 
+# TODO: needs checks setup
+# TODO: needs to operate valves to take system out of circulation
+class StopCirculation(CryoScript):
+    """At the moment this just integrates the volume circulated as a check that this is accurate"""
+
+    def run(self, SL_circulated):
+
+        MFC001 = self.devices.MFC001
+
+        # calculate volume circuated from readback of MFC001, pause execution until exceeded
+        volume = 0
+        t0 = time.time()
+        last_updated = 0
+        while volume < SL_circulated:
+
+            # flow rate in SL/s
+            rate = MFC001.readback / 60
+            t1 = time.time()
+
+            # check if epics variable updated
+            tupdated = MFC001.pv[MFC001.readback_name].timestamp
+            if tupdated == last_updated:
+                continue
+            last_updated = tupdated
+
+            # update total volume
+            volume += rate * (t1-t0)
+            t0 = t1
+
+            # sleep
+            print(f'Volume circulated: {volume} SL')
+            time.sleep(1)
+
+        print(f'Volume circulated exceeds target ({volume} > {SL_circulated} SL)')
+
 class StartRecovery(CryoScript):
     """Start the isopure recovery process: pump out the pipes before regeneration"""
 
@@ -343,7 +380,7 @@ class StartRegeneration(CryoScript):
 
         # close other valves in the panel
         for av in ['AV008', 'AV010', 'AV011', 'AV012', 'AV014', 'AV019', 'AV020',
-                   'AV023', 'AV027', 'AV029']:
+                   'AV023', 'AV027', 'AV026', 'AV029']:
             self.devices[av].close()
 
         # open purifier to atmosphere
@@ -403,23 +440,29 @@ class StopRegeneration(CryoScript):
 # RUN SCRIPT ==============================================================
 # For best protections of cryostat on error, run inside of "with" statement
 
-# with StartRegeneration(dry_run=True) as script:
-#    script(temperature=180)
+if __name__ == "__main__":
 
-# with StopRegeneration(dry_run=True) as script:
-#     script(fm208_thresh = 0.25)
+    # THESE SCRIPTS ARE WORKING
 
-# with StartCooling(dry_run=True) as script:
-#     script(temperature = 45)
+    with StopRecovery() as script:
+       script(pt_thresh=4.5)
 
-# BELOW THIS POINT IS DRY_RUN ONLY (UNIMPLEMENTED)
+    with StartRegeneration() as script:
+       script(temperature=180)
 
-# with StopCooling(dry_run=True) as script:
-#     script(temperature = 45)
+    with StopRegeneration() as script:
+        script(fm208_thresh = 0.25)
 
-# with StartRecovery(dry_run=True) as script:
-#    script()
+    with StartCooling() as script:
+        script(temperature = 45)
 
-# with StopRecovery(dry_run=True) as script:
-#    script(pt_thresh=3)
+    with StopCooling() as script:
+        script(temperature = 45)
 
+    # BELOW THIS POINT IS DRY_RUN ONLY (UNIMPLEMENTED)
+
+    # with StartRecovery(dry_run=True) as script:
+    #    script()
+
+    # with StopCirculation(dry_run=True) as script:
+    #     script(SL_circulated=1000)

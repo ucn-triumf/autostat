@@ -375,13 +375,15 @@ class EpicsAV(EpicsDevice):
         # on or off
         if on:
             suffix = 'DRVON'
-            attr = 'is_closed'
             state = self.on_state
+            if 'open' in state: attr = 'is_closed'
+            else:               attr = 'is_open'
 
         else:
             suffix = 'DRVOFF'
-            attr = 'is_open'
             state = self.off_state
+            if 'open' in state: attr = 'is_closed'
+            else:               attr = 'is_open'
 
         # switch with timeout
         t0 = time.time()
@@ -397,6 +399,7 @@ class EpicsAV(EpicsDevice):
             if self.dry_run:
                 break
             else:
+                print(suffix)
                 self.pv[suffix].put(1)
                 time.sleep(self.sleep_time)
 

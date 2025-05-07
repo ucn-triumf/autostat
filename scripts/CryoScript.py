@@ -87,6 +87,8 @@ class CryoScript(object):
         # disconnect from midas client
         self.client.disconnect()
 
+        return
+
     def __call__(self, *args, **kwargs):
         self.log(f'started')
         self.check_status()
