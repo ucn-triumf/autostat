@@ -375,12 +375,12 @@ class EpicsAV(EpicsDevice):
         # on or off
         if on:
             suffix = 'DRVON'
-            attr = 'is_off'
+            attr = 'is_closed'
             state = self.on_state
 
         else:
             suffix = 'DRVOFF'
-            attr = 'is_on'
+            attr = 'is_open'
             state = self.off_state
 
         # switch with timeout
@@ -422,6 +422,11 @@ class EpicsAVNormOpen(EpicsAV):
 
     on_state = 'close'
     off_state = 'open'
+
+    @property
+    def is_open(self):          return self.is_off
+    @property
+    def is_closed(self):        return not self.is_open
 
     def close(self):
         """synonym for off, but for valves"""
