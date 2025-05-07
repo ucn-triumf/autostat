@@ -7,9 +7,6 @@
 import time
 from CryoScript import CryoScript
 
-# TODO: stop_circulation should check for clogs
-# TODO: catch errors on sending messages to MIDAS to prevent failure
-
 # make scripts ------------------------------------------------------------
 class StartCooling(CryoScript):
     """Start cooling to target temperature"""
@@ -141,7 +138,7 @@ class StartCirculation(CryoScript):
         self.devices.AV029.open()
         self.devices.AV027.open()
 
-        # connect to purifier # TODO: check that these open as they should!
+        # connect to purifier
         self.devices.AV025.open()
         self.devices.AV024.open()
 
@@ -188,6 +185,7 @@ class StartCirculation(CryoScript):
                 self.devices[av].open()
 
 # TODO: needs checks setup
+# TODO: check for clogs
 # TODO: needs to operate valves to take system out of circulation
 class StopCirculation(CryoScript):
     """At the moment this just integrates the volume circulated as a check that this is accurate"""
@@ -442,7 +440,7 @@ class StartRegeneration(CryoScript):
         self.log(f'{FM208.path} readback ({FM208.readback:.2f} {FM208.readback_units}) is greater than {fm208_at_least} {FM208.readback_units}')
 
 class StopRegeneration(CryoScript):
-    """Wait until FM208 drops below threshold then stop the regeneration processs"""
+    """Wait until FM208 drops below threshold and the trap is at tempertaure then stop the regeneration processs"""
 
     devices_closed = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV010',
                       'AV011', 'AV012', 'AV013', 'AV014', 'AV015', 'AV016', 'AV017',
@@ -453,9 +451,15 @@ class StopRegeneration(CryoScript):
 
     devices_on = ['HTR010', 'HTR012', 'HTR105', 'HTR107']
 
-    def run(self, fm208_thresh):
+    def run(self, temperature, fm208_thresh):
 
-        # Block execution until FM208 is below threshold
+        # block until at temperature
+        self.wait_until_greaterthan('TS512', temperature-0.1)
+        self.wait_until_greaterthan('TS510', temperature-0.1)
+        self.wait_until_greaterthan('TS511', temperature-0.1)
+        self.wait_until_greaterthan('TS513', temperature-0.1)
+
+        # block until FM208 is below threshold
         self.wait_until_lessthan('FM208', fm208_thresh)
 
         # turn off autostat enable
@@ -488,7 +492,7 @@ if __name__ == "__main__":
        script(temperature=180, fm208_at_least=1)
 
     with StopRegeneration() as script:
-        script(fm208_thresh = 0.25)
+        script(temperature=180, fm208_thresh = 0.25)
 
     with StartCooling() as script:
         script(temperature = 45)

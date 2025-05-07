@@ -39,6 +39,7 @@ class CryoScript(object):
     devices_below = {}      # pass if readback < threshold
     devices_above = {}      # pass if readback > threshold
 
+    # don't change this unless you want to pollute the ODB programs directory
     program_name = 'CryoScript'
 
     def __init__(self, timeout=10, dry_run=False):
