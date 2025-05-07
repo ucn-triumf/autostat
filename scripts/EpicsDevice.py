@@ -194,10 +194,6 @@ class EpicsDevice(object):
         # check health
         self.healthcheck()
 
-        # dry run print prefix
-        if self.dry_run:    prefix = '[DRY RUN] '
-        else:               prefix = ''
-
         # on or off
         if on:
             suffix = 'DRVON'
@@ -227,16 +223,13 @@ class EpicsDevice(object):
                 time.sleep(self.sleep_time)
 
         # switch success
-        self._log(f'{prefix}{self.path} turned {state}', False)
+        self._log(f'{self.path} turned {state}', False)
 
     def healthcheck(self):
         # some simple checks of device health
 
-        if self.dry_run:    prefix = '[DRY RUN] '
-        else:               prefix = ''
-
         if self.is_interlocked and not self.is_bypassed:
-            msg = f'{prefix}{self.path} is interlocked'
+            msg = f'{self.path} is interlocked'
             self._log(msg, True)
             if not self.dry_run:
                 raise EpicsInterlockError(msg)
@@ -278,12 +271,9 @@ class EpicsDevice(object):
 
     def reset(self):
         """Reset device"""
-        if self.dry_run:
-            prefix = '[DRY RUN] '
-        else:
-            prefix = ''
+        if not self.dry_run:
             self.pv['RST'].put(1)
-        self._log(f'{prefix}{self.path} reset', False)
+        self._log(f'{self.path} reset', False)
 
     def set(self, setpoint):
         """Set the setpoint variable pointed to by self.setpoint_name"""
@@ -296,10 +286,6 @@ class EpicsDevice(object):
 
         # run health check
         self.healthcheck()
-
-        # dry run print prefix
-        if self.dry_run:    prefix = '[DRY RUN] '
-        else:               prefix = ''
 
         # check setpoint limits
         if setpoint < self.pv[self.setpoint_name].lower_ctrl_limit or \
@@ -325,7 +311,7 @@ class EpicsDevice(object):
             time.sleep(self.sleep_time)
 
         # set success
-        self._log(f"{prefix}{self.path}:{self.setpoint_name} set to {setpoint} {self.setpoint_units}")
+        self._log(f"{self.path}:{self.setpoint_name} set to {setpoint} {self.setpoint_units}")
 
     # dynamic properties
     @property
@@ -368,10 +354,6 @@ class EpicsAV(EpicsDevice):
         # check health
         self.healthcheck()
 
-        # dry run print prefix
-        if self.dry_run:    prefix = '[DRY RUN] '
-        else:               prefix = ''
-
         # on or off
         if on:
             suffix = 'DRVON'
@@ -405,7 +387,7 @@ class EpicsAV(EpicsDevice):
 
         # switch success
         state = f'{state}ed' if 'open' in state else f'{state}d'
-        self._log(f'{prefix}{self.path} {state}', False)
+        self._log(f'{self.path} {state}', False)
 
     def close(self):
         """synonym for off, but for valves"""
@@ -484,10 +466,6 @@ class EpicsHTR(EpicsDevice):
         # check health
         self.healthcheck()
 
-        # dry run print prefix
-        if self.dry_run:    prefix = '[DRY RUN] '
-        else:               prefix = ''
-
         # switch with timeout
         t0 = time.time()
         while self.is_autoenable:
@@ -505,15 +483,11 @@ class EpicsHTR(EpicsDevice):
                 time.sleep(self.sleep_time)
 
         # success
-        self._log(f'{prefix}{self.path} autocontrol disabled')
+        self._log(f'{self.path} autocontrol disabled')
 
     def enable_auto(self):
         # check health
         self.healthcheck()
-
-        # dry run print prefix
-        if self.dry_run:    prefix = '[DRY RUN] '
-        else:               prefix = ''
 
         # switch with timeout
         t0 = time.time()
@@ -532,7 +506,7 @@ class EpicsHTR(EpicsDevice):
                 time.sleep(self.sleep_time)
 
         # success
-        self._log(f'{prefix}{self.path} autocontrol enabled')
+        self._log(f'{self.path} autocontrol enabled')
 
     @property
     def is_autoenable(self):    return bool(self.pv['STAT.B8'].get())
@@ -599,10 +573,6 @@ class EpicsTP(EpicsDevice):
         """Toggle low speed state"""
         self.healthcheck()
 
-        # dry run print prefix
-        if self.dry_run:    prefix = '[DRY RUN] '
-        else:               prefix = ''
-
         target_state = not self.is_low
         t0 = time.time()
         while self.is_low != target_state:
@@ -618,9 +588,9 @@ class EpicsTP(EpicsDevice):
                 time.sleep(self.sleep_time)
 
         if target_state:
-            self._log(f'{prefix}{self.path} put into low speed state')
+            self._log(f'{self.path} put into low speed state')
         else:
-            self._log(f'{prefix}{self.path} put into high speed state')
+            self._log(f'{self.path} put into high speed state')
 
     @property
     def is_atspeed(self):       return bool(self.pv['STATATSPD'].get())
@@ -676,10 +646,6 @@ class EpicsAV020(EpicsAV):
         # check health
         self.healthcheck()
 
-        # dry run print prefix
-        if self.dry_run:    prefix = '[DRY RUN] '
-        else:               prefix = ''
-
         # switch with timeout
         t0 = time.time()
         while not self.is_autoenable:
@@ -697,15 +663,11 @@ class EpicsAV020(EpicsAV):
                 time.sleep(self.sleep_time)
 
         # success
-        self._log(f'{prefix}{self.path} autocontrol enabled')
+        self._log(f'{self.path} autocontrol enabled')
 
     def disable_auto(self):
         # check health
         self.healthcheck()
-
-        # dry run print prefix
-        if self.dry_run:    prefix = '[DRY RUN] '
-        else:               prefix = ''
 
         # switch with timeout
         t0 = time.time()
@@ -724,7 +686,7 @@ class EpicsAV020(EpicsAV):
                 time.sleep(self.sleep_time)
 
         # success
-        self._log(f'{prefix}{self.path} autocontrol disabled')
+        self._log(f'{self.path} autocontrol disabled')
 
 class EpicsAV021(EpicsAV):
     """Automatic Valve UCN2:ISO:AV021"""
@@ -755,10 +717,6 @@ class EpicsAV021(EpicsAV):
         # check health
         self.healthcheck()
 
-        # dry run print prefix
-        if self.dry_run:    prefix = '[DRY RUN] '
-        else:               prefix = ''
-
         # switch with timeout
         t0 = time.time()
         while not self.is_autoenable:
@@ -776,15 +734,11 @@ class EpicsAV021(EpicsAV):
                 time.sleep(self.sleep_time)
 
         # success
-        self._log(f'{prefix}{self.path} autocontrol enabled')
+        self._log(f'{self.path} autocontrol enabled')
 
     def disable_auto(self):
         # check health
         self.healthcheck()
-
-        # dry run print prefix
-        if self.dry_run:    prefix = '[DRY RUN] '
-        else:               prefix = ''
 
         # switch with timeout
         t0 = time.time()
@@ -803,4 +757,4 @@ class EpicsAV021(EpicsAV):
                 time.sleep(self.sleep_time)
 
         # success
-        self._log(f'{prefix}{self.path} autocontrol disabled')
+        self._log(f'{self.path} autocontrol disabled')

@@ -9,7 +9,6 @@ from CryoScript import CryoScript
 
 # TODO: stop_circulation should check for clogs
 # TODO: catch errors on sending messages to MIDAS to prevent failure
-# TODO: simplify dry run messaging
 
 # make scripts ------------------------------------------------------------
 class StartCooling(CryoScript):
@@ -65,8 +64,11 @@ class StopCooling(CryoScript):
         for pid in ['PID_PUR_ISO70K', 'PID_PUR_ISO20K', 'PID_PUR_HE20K', 'PID_PUR_HE70K']:
             if not self.get_odb(f'/Equipment/{pid}/Settings/Enabled'):
                 msg = f'{pid} is not enabled when it should be! Undefined system state, exiting.'
-                if self.dry_run:    self.log(f'[DRY RUN] {msg}')
+                if self.dry_run:    self.log(msg)
                 else:               raise RuntimeError(msg)
+
+            elif self.dry_run:
+                self.log(f'{pid} is enabled')
 
     def run(self, temperature):
 
@@ -75,8 +77,10 @@ class StopCooling(CryoScript):
             setpoint = self.get_odb(f'/Equipment/{pid}/Settings/target_setpoint')
             if setpoint != temperature:
                 msg = f'{pid} setpoint ({setpoint:.1f}K) is not as it should be! Undefined system state, exiting.'
-                if self.dry_run:    self.log(f'[DRY RUN] {msg}')
+                if self.dry_run:    self.log(msg)
                 else:               raise RuntimeError(msg)
+            elif self.dry_run:
+                self.log(f'{pid} setpoint is {setpoint:.1f}K')
 
         # wait for the temperature to drop
         self.wait_until_lessthan('TS510', temperature+0.1)
@@ -351,7 +355,11 @@ class StartRegeneration(CryoScript):
                     'HTR012', 'HTR105', 'HTR107']
 
     def exit(self):
-        if 'startup' in self.run_state:
+
+        if self.run_state is None:
+            return
+
+        elif 'startup' in self.run_state:
             self.devices.BP002.off()
             self.devices.CP001.on()
             self.devices.CP101.on()
@@ -404,7 +412,8 @@ class StartRegeneration(CryoScript):
 
         # time delay to skip that spike
         self.log('Waiting a grace period of 30 s')
-        time.sleep(30)
+        if not self.dry_run:
+            time.sleep(30)
 
         # wait for FM208 to start increasing or the temperature to hit half the target
         def wait_condition():
@@ -424,12 +433,13 @@ class StartRegeneration(CryoScript):
             return f'{FM208.path} is {FM208.readback:.3f} {FM208.readback_units}, and {TS510.path} is {TS510.readback:.3f} {TS510.readback_units}. Waiting...'
 
         # run the wait procedure
-        if device.readback < thresh:
-            self.log(f'Waiting for {self.devices.FM208.path} to rise above {fm208_at_least} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
+        FM208 = self.devices.FM208
+        if FM208.readback < fm208_at_least:
+            self.log(f'Waiting for {FM208.path} to rise above {fm208_at_least} {FM208.readback_units}, currently {FM208.readback:.3f} {FM208.readback_units}')
 
             self.wait(wait_condition, wait_message)
 
-        self.log(f'{deself.devices.FM208vice.path} readback ({self.devices.FM208.readback:.2f} {self.devices.FM208.readback_units}) is greater than threshold of {thresh} {self.devices.FM208.readback_units}')
+        self.log(f'{FM208.path} readback ({FM208.readback:.2f} {FM208.readback_units}) is greater than {fm208_at_least} {FM208.readback_units}')
 
 class StopRegeneration(CryoScript):
     """Wait until FM208 drops below threshold then stop the regeneration processs"""

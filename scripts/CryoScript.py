@@ -87,6 +87,9 @@ class CryoScript(object):
         # disconnect from midas client
         self.client.disconnect()
 
+        # wait period
+        time.sleep(1)
+
         return
 
     def __call__(self, *args, **kwargs):
@@ -98,67 +101,63 @@ class CryoScript(object):
     def check_status(self):
         """Verify that the state of the system is as expected"""
 
-        # dry run prefix
-        if self.dry_run:    prefix = '[DRY RUN] '
-        else:               prefix = ''
-
         # devices should be on
         for name in sorted(self.devices_on):
             if self.devices[name].is_off:
-                msg = f'{prefix}{name} is off when it should be on'
+                msg = f'{name} is off when it should be on'
                 if self.dry_run:    self.log(msg)
                 else:               raise RuntimeError(msg)
 
             elif self.dry_run:
-                self.log(f'{prefix}{name} is on, as it should')
+                self.log(f'{name} is on, as it should')
 
         # devices should be off
         for name in sorted(self.devices_off):
             if self.devices[name].is_on:
-                msg = f'{prefix}{name} is on when it should be off'
+                msg = f'{name} is on when it should be off'
                 if self.dry_run:    self.log(msg)
                 else:               raise RuntimeError(msg)
 
             elif self.dry_run:
-                self.log(f'{prefix}{name} is off, as it should')
+                self.log(f'{name} is off, as it should')
 
         # devices should be closed
         for name in sorted(self.devices_closed):
             if self.devices[name].is_open:
-                msg = f'{prefix}{name} is open when it should be closed'
+                msg = f'{name} is open when it should be closed'
                 if self.dry_run:    self.log(msg)
                 else:               raise RuntimeError(msg)
             elif self.dry_run:
-                self.log(f'{prefix}{name} is closed, as it should')
+                self.log(f'{name} is closed, as it should')
 
         # devices should be open
         for name in sorted(self.devices_open):
             if self.devices[name].is_closed:
-                msg = f'{prefix}{name} is closed when it should be open'
+                msg = f'{name} is closed when it should be open'
                 if self.dry_run:    self.log(msg)
                 else:               raise RuntimeError(msg)
             elif self.dry_run:
-                self.log(f'{prefix}{name} is open, as it should')
+                self.log(f'{name} is open, as it should')
 
         # devices below threshold
         for name, thresh in self.devices_below.items():
             val = self.devices[name].readback
             if val > thresh:
-                msg = f'{prefix}{name} is above threshold ({val:.3f} > {thresh:.3f})'
+                msg = f'{name} is above threshold ({val:.3f} > {thresh:.3f})'
                 if self.dry_run:    self.log(msg)
                 else:               raise RuntimeError(msg)
             elif self.dry_run:
-                self.log(f'{prefix}{name} is below threshold ({val:.3f} < {thresh:.3f}), as it should')
+                self.log(f'{name} is below threshold ({val:.3f} < {thresh:.3f}), as it should')
 
         # devices above threshold
         for name, thresh in self.devices_above.items():
             val = self.devices[name].readback
             if val < thresh:
-                msg = f'{prefix}{name} is below threshold ({val:.3f} < {thresh:.3f})'
+                msg = f'{name} is below threshold ({val:.3f} < {thresh:.3f})'
                 if self.dry_run:    self.log(msg)
                 else:               raise RuntimeError(msg)
             elif self.dry_run:
-                self.log(f'{prefix}{name} is above threshold ({val:.3f} > {thresh:.3f}), as it should')
+                self.log(f'{name} is above threshold ({val:.3f} > {thresh:.3f}), as it should')
 
         # bad exit
         self.log(f'All checks passed', False)
@@ -178,17 +177,31 @@ class CryoScript(object):
         pass
 
     def get_odb(self, path):
-        return self.client.odb_get(path)
+
+        nattempts = 0
+
+        while nattempts < 2:
+            try:
+                return self.client.odb_get(path)
+
+            # try reconnecting
+            except midas.MidasError as err:
+                self.client = midas.client.MidasClient(self.name)
+                time.sleep(1)
+                nattempts += 1
 
     def log(self, msg, is_error=False):
 
-        # reformat msg
+        # dry run message reformat
+        if self.dry_run:
+            msg = f'[DRY RUN] {msg}'
+
+        # reformat msg to include name
         msg_orig = msg
         msg = f'[{self.name}] {msg}'
 
-        # dry run
+        # dry run print
         if self.dry_run:
-            msg = =
             print(msg)
 
         # send logging messages
@@ -204,7 +217,10 @@ class CryoScript(object):
 
         # no midas messages on dry run
         if not self.dry_run:
-            self.client.msg(msg, is_error=is_error)
+            try:
+                self.client.msg(msg, is_error=is_error)
+            except Exception as err:
+                self.logger.error(f'MIDAS client failed to recieve message. Traceback: {err}')
 
     def run(self):
         """Run the script
@@ -229,7 +245,7 @@ class CryoScript(object):
 
         # dry run print
         if self.dry_run:
-            self.log(f'[DRY RUN] Set {path} to {value}')
+            self.log(f'Set {path} to {value}')
             return
 
         t0 = time.time()
@@ -255,7 +271,7 @@ class CryoScript(object):
 
         # dry run print
         if self.dry_run:
-            self.log('[DRY RUN] Wait condition bypassed')
+            self.log('Wait condition bypassed')
             return
 
         # print function
@@ -281,18 +297,15 @@ class CryoScript(object):
         """
         device = self.devices[name]
 
-        if self.dry_run:    dry = '[DRY RUN] '
-        else:               dry = ''
-
         if device.readback < thresh:
-            self.log(f'{dry}Waiting for {device.path} to rise above threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
+            self.log(f'Waiting for {device.path} to rise above threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
 
             self.wait(condition=lambda : device.readback > thresh,
-                      printfn=lambda : f'{device.path} below threshold, currently {device.readback:.3f} {device.readback_units}'
+                      printfn=lambda : f'{device.path} below threshold, currently {device.readback:.3f} {device.readback_units}',
                       sleep_dt=sleep_dt,
                       print_dt=print_dt)
 
-        self.log(f'{dry}{device.path} readback ({device.readback:.2f} {device.readback_units}) is greater than threshold of {thresh} {device.readback_units}')
+        self.log(f'{device.path} readback ({device.readback:.2f} {device.readback_units}) is greater than threshold of {thresh} {device.readback_units}')
 
     def wait_until_lessthan(self, name, thresh, sleep_dt=60, print_dt=900):
         """Block program execution until device readback is below the theshold
@@ -305,15 +318,12 @@ class CryoScript(object):
         """
         device = self.devices[name]
 
-        if self.dry_run:    dry = '[DRY RUN] '
-        else:               dry = ''
-
         if device.readback > thresh:
-            self.log(f'{dry}Waiting for {device.path} to drop below threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
+            self.log(f'Waiting for {device.path} to drop below threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
 
             self.wait(condition=lambda : device.readback < thresh,
-                      printfn=lambda : f'{device.path} above threshold, currently {device.readback:.3f} {device.readback_units}'
+                      printfn=lambda : f'{device.path} above threshold, currently {device.readback:.3f} {device.readback_units}',
                       sleep_dt=sleep_dt,
                       print_dt=print_dt)
 
-        self.log(f'{dry}{device.path} readback ({device.readback:.2f} {device.readback_units}) is less than threshold of {thresh} {device.readback_units}')
+        self.log(f'{device.path} readback ({device.readback:.2f} {device.readback_units}) is less than threshold of {thresh} {device.readback_units}')
