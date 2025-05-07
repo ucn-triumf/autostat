@@ -188,6 +188,7 @@ class CryoScript(object):
 
         # dry run
         if self.dry_run:
+            msg = =
             print(msg)
 
         # send logging messages
@@ -242,11 +243,12 @@ class CryoScript(object):
 
         self.log(f'Set {path} to {value}')
 
-    def wait(self, condition, sleep_dt=60, print_dt=900):
+    def wait(self, condition, printfn=None, sleep_dt=60, print_dt=900):
         """Pause execution until condition evaluates to True
 
         Args:
             condition (function handle): function with prototype fn(), which returns True if execution should continue, else wait.
+            printfn (function handle): function with prototype fn(), which returns the statement to log during the wait process. If not use a default statement. Example: lambda: 'Waiting...'
             sleep_dt (int): number of seconds to sleep before checking the condition again
             print_dt (int): number of seconds between print statement
         """
@@ -256,11 +258,15 @@ class CryoScript(object):
             self.log('[DRY RUN] Wait condition bypassed')
             return
 
-        t0 = 0
+        # print function
+        if printfn is None:
+            printfn = lambda : 'Condition not satisfied. Waiting...'
+
+        t0 = time.time()
         while not condition():
             if (time.time()-t0) > print_dt:
                 t0 = time.time()
-                self.log('Condition not satisfied. Waiting...')
+                self.log(printfn())
 
             time.sleep(sleep_dt)
 
@@ -281,7 +287,8 @@ class CryoScript(object):
         if device.readback < thresh:
             self.log(f'{dry}Waiting for {device.path} to rise above threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
 
-            self.wait(condition = lambda : device.readback > thresh,
+            self.wait(condition=lambda : device.readback > thresh,
+                      printfn=lambda : f'{device.path} below threshold, currently {device.readback:.3f} {device.readback_units}'
                       sleep_dt=sleep_dt,
                       print_dt=print_dt)
 
@@ -304,7 +311,8 @@ class CryoScript(object):
         if device.readback > thresh:
             self.log(f'{dry}Waiting for {device.path} to drop below threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
 
-            self.wait(condition = lambda : device.readback < thresh,
+            self.wait(condition=lambda : device.readback < thresh,
+                      printfn=lambda : f'{device.path} above threshold, currently {device.readback:.3f} {device.readback_units}'
                       sleep_dt=sleep_dt,
                       print_dt=print_dt)
 

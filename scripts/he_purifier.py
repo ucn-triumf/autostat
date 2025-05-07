@@ -7,10 +7,9 @@
 import time
 from CryoScript import CryoScript
 
-# TODO: Make elog entry on completion?
 # TODO: stop_circulation should check for clogs
-# TODO: Wait condition double print is too quick, reduce to one
-# TODO: Wait condition could use a better printout
+# TODO: catch errors on sending messages to MIDAS to prevent failure
+# TODO: simplify dry run messaging
 
 # make scripts ------------------------------------------------------------
 class StartCooling(CryoScript):
@@ -219,6 +218,8 @@ class StopCirculation(CryoScript):
 
         print(f'Volume circulated exceeds target ({volume} > {SL_circulated} SL)')
 
+# TODO this one needs more permissions to run
+# TODO careful checking of operation order
 class StartRecovery(CryoScript):
     """Start the isopure recovery process: pump out the pipes before regeneration"""
 
@@ -401,8 +402,34 @@ class StartRegeneration(CryoScript):
             self.set_odb(f'/Equipment/{pid}/Settings/target_setpoint', temperature)
             self.set_odb(f'/Equipment/{pid}/Settings/Enabled', True)
 
-        # wait for FM208 to start increasing
-        self.wait_until_greaterthan('FM208', fm208_at_least)
+        # time delay to skip that spike
+        self.log('Waiting a grace period of 30 s')
+        time.sleep(30)
+
+        # wait for FM208 to start increasing or the temperature to hit half the target
+        def wait_condition():
+            if self.devices.FM208.readback > fm208_at_least:
+                return True
+
+            TSlist = ['TS512', 'TS510', 'TS511', 'TS513']
+            if any([self.devices[ts].readback > temperature/2 for ts in TSlist]):
+                return True
+
+            return False
+
+        # print a nice message during wait times
+        def wait_message():
+            FM208 = self.devices.FM208
+            TS510 = self.devices.TS510
+            return f'{FM208.path} is {FM208.readback:.3f} {FM208.readback_units}, and {TS510.path} is {TS510.readback:.3f} {TS510.readback_units}. Waiting...'
+
+        # run the wait procedure
+        if device.readback < thresh:
+            self.log(f'Waiting for {self.devices.FM208.path} to rise above {fm208_at_least} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
+
+            self.wait(wait_condition, wait_message)
+
+        self.log(f'{deself.devices.FM208vice.path} readback ({self.devices.FM208.readback:.2f} {self.devices.FM208.readback_units}) is greater than threshold of {thresh} {self.devices.FM208.readback_units}')
 
 class StopRegeneration(CryoScript):
     """Wait until FM208 drops below threshold then stop the regeneration processs"""
@@ -448,7 +475,7 @@ if __name__ == "__main__":
        script(pt_thresh=4.5)
 
     with StartRegeneration() as script:
-       script(temperature=180)
+       script(temperature=180, fm208_at_least=1)
 
     with StopRegeneration() as script:
         script(fm208_thresh = 0.25)
