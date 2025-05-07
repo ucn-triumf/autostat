@@ -178,6 +178,22 @@ class EpicsDevice(object):
             time.sleep(0.001)
             all_connected = all([pv.connected for pv in self.pv.values()])
 
+    def __ge__(self, other):
+        if hasattr(other, 'readback'):  return self.readback >= other.readback
+        else:                           return self.readback >= other
+
+    def __gt__(self, other):
+        if hasattr(other, 'readback'):  return self.readback > other.readback
+        else:                           return self.readback > other
+
+    def __le__(self, other):
+        if hasattr(other, 'readback'):  return self.readback <= other.readback
+        else:                           return self.readback <= other
+
+    def __lt__(self, other):
+        if hasattr(other, 'readback'):  return self.readback < other.readback
+        else:                           return self.readback < other
+
     def _log(self, message, is_error=False):
         if self.logfn is None:
             return
