@@ -41,15 +41,13 @@ class CryoScript(object):
 
     def __init__(self, timeout=10, dry_run=False):
 
-        scriptname = __class__.__name__
-
         # make logger
         self.logger = logging.getLogger('CryoScript')
         self.logger.setLevel(logging.INFO)
         log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 
         # setup file handler with rotating file handling
-        rfile_handler = RotatingFileHandler(f'{scriptname}.log', mode='a',
+        rfile_handler = RotatingFileHandler(f'{self.name}.log', mode='a',
                                             maxBytes=5*1024*1024, backupCount=1,
                                             encoding=None, delay=False)
         rfile_handler.setFormatter(log_formatter)
@@ -66,7 +64,7 @@ class CryoScript(object):
             self.logger.addHandler(rfile_handler)
 
         # connect to midas client
-        self.client = midas.client.MidasClient(scriptname)
+        self.client = midas.client.MidasClient(self.name)
 
         # initialization
         self.devices = EpicsDeviceCollection(self.log, timeout=timeout, dry_run=dry_run)
