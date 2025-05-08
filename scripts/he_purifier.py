@@ -1,11 +1,9 @@
-#!/usr/bin/python3
-# run with "nohup ./he_purifier.py &" to keep the code running in the background even if disconnected
-# Transition the He purifier from regeneration to cooling
+# He purifier runscripts
 # Derek Fujimoto
 # May 2025
 
 import time
-from CryoScript import CryoScript
+from CryoScript2 import CryoScript
 
 # make scripts ------------------------------------------------------------
 class StartCooling(CryoScript):
@@ -17,7 +15,18 @@ class StartCooling(CryoScript):
                    'AV025', 'AV026', 'AV027', 'AV028', 'AV029', 'AV030', 'AV031',
                    'AV032', 'AV034', 'AV050', 'AV051']
 
-    def run(self, temperature):
+    # default settings
+    DEFAULT_SETTINGS = collections.OrderedDict([
+        ("temperature_K", 45),
+        ("timeout_s", 10),
+        ('dry_run', False),
+        ('wait_sleep_s', 60),
+        ('wait_print_delay_s', 900),
+        ("_queue_order", -1), # if 0 run this script
+        ("_is_running", False),
+    ])
+
+    def run(self):
 
         # turn on heaters and set setpoints to zero
         for htr in ['HTR010', 'HTR012', 'HTR105', 'HTR107']:
@@ -40,7 +49,7 @@ class StartCooling(CryoScript):
         # turn on autostat enable and change setpoints
         pids = ['PID_PUR_ISO70K', 'PID_PUR_ISO20K', 'PID_PUR_HE20K', 'PID_PUR_HE70K']
         for pid in pids:
-            self.set_odb(f'/Equipment/{pid}/Settings/target_setpoint', temperature)
+            self.set_odb(f'/Equipment/{pid}/Settings/target_setpoint', self.settings['temperature_K'])
             self.set_odb(f'/Equipment/{pid}/Settings/Enabled', True)
 
 class StopCooling(CryoScript):
@@ -80,7 +89,9 @@ class StopCooling(CryoScript):
                 self.log(f'{pid} setpoint is {setpoint:.1f}K')
 
         # wait for the temperature to drop
+        self.wait_until_lessthan('TS510', temperature+0.1)
         self.wait_until_lessthan('TS511', temperature+0.1)
+        self.wait_until_lessthan('TS512', temperature+0.1)
         self.wait_until_lessthan('TS513', temperature+0.1)
 
 class StartCirculation(CryoScript):
@@ -182,49 +193,21 @@ class StartCirculation(CryoScript):
                 self.log(msg, True)
                 self.devices[av].open()
 
+# TODO: needs checks setup
+# TODO: check for clogs
+# TODO: needs to operate valves to take system out of circulation
 class StopCirculation(CryoScript):
-    """Wait until integrated volume rises above threshold, if clog detected, close AV021 and AV022"""
+    """At the moment this just integrates the volume circulated as a check that this is accurate"""
 
-    devices_open = ['AV025', 'AV027', 'AV029', 'AV010', 'AV011', 'AV012',
-                    'AV014', 'AV019', 'AV020', 'AV021', 'AV022', 'AV023',
-                    'AV024', ]
-    devices_closed=['AV026', 'AV023', 'AV030', 'AV028', 'AV009', 'AV032',
-                    'AV013', 'AV017', 'AV016', 'AV050', 'AV051']
-
-    devices_on = ['MP001', 'MP002', 'MFC001', 'CP001', 'CP101', 'BP001',
-                  'HTR010', 'HTR012', 'HTR105', 'HTR107', ]
-    devices_off = ['BP002']
-
-    def exit(self):
-        if self.run_state is None: return
-
-        elif self.run_state == 'circulating':
-            self.devices.AV021.disable_auto()
-            self.devices.AV021.close()
-            self.devices.AV022.close()
-
-    def run(self, volume_SL, print_dt=900):
+    def run(self, SL_circulated):
 
         MFC001 = self.devices.MFC001
-        PT005 = self.devices.PT005
-
-        self.run_state = 'circulating'
 
         # calculate volume circuated from readback of MFC001, pause execution until exceeded
         volume = 0
         t0 = time.time()
-        t0_print = t0
         last_updated = 0
-        while volume < volume_SL:
-
-            # check for clogs - if true, end early
-            if MFC001.setpoint > 30 and MFC001.readback < 5 and PT005.readback < 100 and not self.dry_run:
-                self.log(f'Purifier clog detected! MFC readback is {MFC001.readback:.2f} {MFC001.readback_units} and PT005 readback is {PT005.readback:.2f} {PT005.readback_units}, even though MFC001 is set to {MFC001.setpoint:.2f}{MFC001.setpoint_units}')
-
-                self.devices.AV021.disable_auto()
-                self.devices.AV021.close()
-                self.devices.AV022.close()
-                break
+        while volume < SL_circulated:
 
             # flow rate in SL/s
             rate = MFC001.readback / 60
@@ -240,34 +223,44 @@ class StopCirculation(CryoScript):
             volume += rate * (t1-t0)
             t0 = t1
 
-            # print volume circulated
-            if (time.time()-t0_print) > print_dt:
-                t0_print = time.time()
-                self.log(f'Circulated {volume:.0f} SL')
-
             # sleep
+            print(f'Volume circulated: {volume} SL')
             time.sleep(1)
 
-            # dry run
-            if self.dry_run:
-                break
+        print(f'Volume circulated exceeds target ({volume} > {SL_circulated} SL)')
 
-        if volume < volume_SL:
-            self.log(f'Circulated {volume:.0f} SL')
-
+# TODO this one needs more permissions to run
+# TODO careful checking of operation order
 class StartRecovery(CryoScript):
     """Start the isopure recovery process: pump out the pipes before regeneration"""
 
-    devices_open = ['AV010', 'AV011', 'AV012', 'AV014', 'AV019', 'AV020',
-                    'AV024', 'AV025', 'AV027', 'AV029', ]
+    devices_open = ['AV010', 'AV011', 'AV012', 'AV014', 'AV019', 'AV020', 'AV021',
+                    'AV022', 'AV024', 'AV025', 'AV027', 'AV029', ]
 
-    devices_closed = ['AV026', 'AV023', 'AV030', 'AV028', 'AV009', 'AV032',
-                      'AV013', 'AV017', 'AV016', 'AV050', 'AV051']
+    devices_closed = ['AV008', 'AV009', 'AV013', 'AV015', 'AV016', 'AV017', 'AV018',
+                      'AV023', 'AV026', 'AV028', 'AV030', 'AV031', 'AV032', 'AV034',
+                      'AV050', 'AV051']
 
     devices_off = ['BP002']
 
-    devices_on =  [ 'BP001', 'CP001', 'CP101', 'MP001', 'MP002', 'MFC001',
-                    'HTR010', 'HTR012', 'HTR105', 'HTR107']
+    devices_on =  [ 'BP001', 'CP001', 'CP101', 'MP001', 'MP002', 'MFC001', 'HTR010',
+                    'HTR012', 'HTR105', 'HTR107']
+
+    def check_status(self):
+        super().check_status()
+
+        # dry run prefix
+        if self.dry_run: prefix = '[DRY RUN] '
+        else:            prefix = ''
+
+        # check AV autocontrol status
+        for av in ['AV020', 'AV021']:
+            if not self.devices[av].is_autoenable:
+                msg = f'{prefix}{av} autocontrol is disabled when it should be enabled'
+                if self.dry_run:
+                    self.log(msg)
+                else:
+                    raise RuntimeError(msg)
 
     def exit(self):
         if self.run_state == 'av auto disabled':
@@ -313,10 +306,14 @@ class StopRecovery(CryoScript):
     def check_status(self):
         super().check_status()
 
+        # dry run prefix
+        if self.dry_run: prefix = '[DRY RUN] '
+        else:            prefix = ''
+
         # check AV autocontrol status
         for av in ['AV020', 'AV021']:
             if self.devices[av].is_autoenable:
-                msg = f'{av} autocontrol is enabled when it should be disabled'
+                msg = f'{prefix}{av} autocontrol is enabled when it should be disabled'
                 if self.dry_run:
                     self.log(msg)
                 else:
@@ -325,7 +322,7 @@ class StopRecovery(CryoScript):
         # check autostat enable (should be off)
         for pid in ['PID_PUR_ISO70K', 'PID_PUR_ISO20K', 'PID_PUR_HE20K', 'PID_PUR_HE70K']:
             if self.get_odb(f'/Equipment/{pid}/Settings/Enabled'):
-                msg = f'{pid} is enabled when it should be disabled'
+                msg = f'{prefix}{pid} is enabled when it should be disabled'
                 if self.dry_run:
                     self.log(msg)
                 else:
@@ -334,7 +331,7 @@ class StopRecovery(CryoScript):
         # check that heaters are zero
         for htr in ['HTR010', 'HTR012', 'HTR105', 'HTR107']:
             if self.devices[htr].readback != 0:
-                msg = f'{htr} should have setpoint zero, but is {self.devices[htr].readback} {self.devices[htr].readback_units}'
+                msg = f'{prefix}{htr} should have setpoint zero, but is {self.devices[htr].readback} {self.devices[htr].readback_units}'
                 if self.dry_run:
                     self.log(msg)
                 else:
@@ -387,11 +384,11 @@ class StartRegeneration(CryoScript):
             if self.devices[av].is_open:
                 msg = f'{av} is open when it should be closed'
                 if self.dry_run:
-                    self.log(msg)
+                    self.log('[DRY RUN] ' + msg)
                 else:
                     raise RuntimeError(msg)
             elif self.dry_run:
-                self.log(f'{av} is closed as it should')
+                self.log(f'[DRY RUN] {av} is closed as it should')
 
         # turn off pumps
         self.devices.MP002.off()
@@ -490,33 +487,3 @@ class StopRegeneration(CryoScript):
         # turn off pump
         self.devices.BP002.off()
 
-# RUN SCRIPT ==============================================================
-# For best protections of cryostat on error, run inside of "with" statement
-
-if __name__ == "__main__":
-
-    # THESE SCRIPTS ARE WORKING
-    # Comment out steps to not run that step
-
-#    with StopRecovery() as script:
-#       script(pt_thresh=4.4)
-
-#    with StartRegeneration() as script:
-#       script(temperature=180, fm208_at_least=1)
-
-    with StopRegeneration() as script:
-        script(temperature=180, fm208_thresh = 0.25)
-
-    with StartCooling() as script:
-        script(temperature = 45)
-
-    with StopCooling() as script:
-        script(temperature = 45)
-
-    # BELOW THIS POINT IS DRY_RUN ONLY (UNIMPLEMENTED)
-
-    # with StartRecovery(dry_run=True) as script:
-    #    script()
-
-    # with StopCirculation(dry_run=True) as script:
-    #     script(SL_circulated=1000)
