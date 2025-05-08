@@ -93,7 +93,6 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
                               self.callback_main,
                               pass_changed_value_only=True)
 
-
         # get epics readback variables to read and write
         # by default uses the monitor backend (desired)
         self.pv = {key: epics.PV(val) for key, val in self.EPICS_PV.items()}

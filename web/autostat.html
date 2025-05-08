@@ -7,6 +7,15 @@
     <script src="jquery.min.js"></script>
     <script src="midas.js"></script>
     <script src="mhttpd.js"></script>
+    <style>
+        table {
+            float: left;
+            width: 50%;
+        }
+        button {
+            width: 90%;
+        }
+    </style>
     <title>AutoStat</title>
     <script>
         function setup(){
@@ -133,20 +142,101 @@
     <div id="mheader"></div>
     <div id="msidenav"></div>
     <div id="mmain">
-    <div id="full_div" style="display:block">
+    <div id="full_div">
         <section>
-                <!-- PID Table -->
-                <table class="mtable">
-                    <thead>
-                        <tr style="height: 50px">
-                            <th colspan="5" class="mtableheader"><h1>Enable PID Control Loops</h1></th>
-                        </tr>
-                        <tr>
-                            <td colspan="5" style="text-align: center"> <b><div id="updateStatus"></b></td>
-                        </tr>
-                    </thead>
-                    <tbody id="table_body"></tbody>
-                </table>
+            <!-- PID Table -->
+            <table class="mtable">
+                <thead>
+                    <tr style="height: 50px">
+                        <th colspan="5" class="mtableheader"><h1>PID Control Loops</h1></th>
+                    </tr>
+                    <tr>
+                        <td colspan="5" style="text-align: center"> <b><div id="updateStatus"></b></td>
+                    </tr>
+                </thead>
+                <tbody id="table_body"></tbody>
+            </table>
+
+            <!-- Scripts Table -->
+            <table class="mtable">
+                <thead>
+                    <tr style="height: 50px">
+                        <th colspan="5" class="mtableheader"><h1>Scripts [THIS TABLE UNDER DEVELOPMENT]</h1></th>
+                    </tr>
+                    <tr>
+                        <td colspan="5" style="text-align: center"> <b><div id="currently_running"> </div></b></td>
+                    </tr>
+                </thead>
+                <tbody id="scripts">
+                    <tr>
+                        <th colspan="5" class="mtableheader">He Purifier</th>
+                    </tr>
+                    <tr>
+                        <td align="center"><b>Script Name</b></td>
+                        <td align="center"><b>Inputs</b></td>
+                        <td align="center"><b>Queue</b></td>
+                    </tr>
+                    <tr>
+                        <td>StopRecovery</td>
+                        <td>
+                            <label>When PT004 and PT005 <
+                                <input type="number" step="0.01" size="2", value="3", id="StopRecovery_pt_thresh"> mbar
+                            </label>
+                        </td>
+                        <td align="center"><button id="add_StopRecovery">Add</button></td>
+                    </tr>
+                    <tr>
+                        <td>StartRegeneration</td>
+                        <td>
+                            <label>Set temperature =
+                                <input type="number" step="1" size="2", value="180", id="StartRegeneration_temperature"> K,
+                            </label>
+                            <label>then wait until PT208 >
+                                <input type="number" step="0.01" size="2", value="1", id="StartRegeneration_fm208_at_least"> SLM
+                            </label>
+                        </td>
+                        <td align="center"><button id="add_StartRegeneration">Add</button></td>
+                    </tr>
+                    <tr>
+                        <td>StopRegeneration</td>
+                        <td>
+                            <label>When temperatures = <input type="number" step="1" size="2", value="180", id="StopRegeneration_temperature"> K and PT208 <
+                                <input type="number" step="0.01" size="2", value="0.25", id="StopRegeneration_fm208_thresh"> SLM
+                            </label>
+                        </td>
+                        <td align="center"><button id="add_StopRegeneration">Add</button></td>
+                    </tr>
+                    <tr>
+                        <td>StartCooling</td>
+                        <td>
+                            <label>Set temperature =
+                                <input type="number" step="1" size="2", value="45", id="StartCooling_temperature"> K
+                            </label>
+                        </td>
+                        <td align="center"><button id="add_StartCooling">Add</button></td>
+                    </tr>
+                    <tr>
+                        <td>StopCooling</td>
+                        <td>
+                            <label>When temperature ==
+                                <input type="number" step="1" size="2", value="45", id="StopCooling_temperature"> K
+                            </label>
+                        </td>
+                        <td align="center"><button id="add_StopCooling">Add</button></td>
+                    </tr>
+
+
+                    <tr>
+                        <th colspan="5" class="mtableheader">
+                            Queued
+                        </th>
+                    </tr>
+                    <tr>
+                        <td colspan="5" align="center"><button id="runscript">Run Queued Scripts</button></td>
+                    </tr>
+
+                </tbody>
+            </table>
         </section>
     </div>
 </body>
