@@ -198,17 +198,17 @@ class StopCirculation(CryoScript):
             return
 
         elif self.run_state == 'circulating':
+            self.devices.AV020.close()
             self.devices.AV021.close()
-            self.devices.AV022.close()
             self.devices.MP001.off()
             self.devices.MP002.off()
+            self.devices.BP001.off()
+            self.devices.AV014.close()
 
-    def run(self, volume_SL, pt009_thresh, pt001_thresh, pt_overtime_s=180, mfc_nonzero_thresh=0.5, print_dt=900):
+    def run(self, volume_SL, pt_overtime_s=180, mfc_nonzero_thresh=0.5, print_dt=900):
         """ Integrate flow through MFC001
         Args:
             volume_SL (float): volume at which to stop circulation in SL
-            pt009_thresh (tuple): (low, high) bounds for pt009 in mbar(a). If exceeded, close AV021 and AV020
-            pt001_thresh (tuple): (low, high) bounds for pt001 in mbar(a). If exceeded, close AV021 and AV020
             pt_overtime_s (float): duration in seconds for how long pressure threshold exceeded before closing AV021 and AV020
             mfc_nonzero_thresh (float): ignore mfc readback less than this value in SL/min (background)
             print_df (float): duration in seconds between print statements of how much volume was flowed
@@ -216,12 +216,8 @@ class StopCirculation(CryoScript):
 
         MFC001 = self.devices.MFC001
         PT005 = self.devices.PT005
-
-        # check inputs
-        if not isinstance(pt009_thresh, Iterable) or len(pt009_thresh) != 2:
-            raise RuntimeError(f'Bad pt009_thresh input. Must be iterable of length 2')
-        if not isinstance(pt001_thresh, Iterable) or len(pt001_thresh) != 2:
-            raise RuntimeError(f'Bad pt001_thresh input. Must be iterable of length 2')
+        AV020 = self.devices.AV020
+        AV021 = self.devices.AV021
 
         self.run_state = 'circulating'
 
@@ -238,14 +234,21 @@ class StopCirculation(CryoScript):
                 self.log(f'Purifier clog detected! MFC readback is {MFC001.readback:.2f} {MFC001.readback_units} and PT005 readback is {PT005.readback:.2f} {PT005.readback_units}, even though MFC001 is set to {MFC001.setpoint:.2f}{MFC001.setpoint_units}')
                 self.devices.AV021.close()
                 self.devices.AV022.close()
+                self.devices.AV050.open()
                 break
 
             # check for overpressure
             pt001 = self.devices.PT001.readback
             pt009 = self.devices.PT009.readback
-
-            if (pt001_thresh[0] < pt001 < pt001_thresh[1]) and (pt009_thresh[0] < pt009 < pt009_thresh[1]):
+            
+            if (AV020.pt001_low < pt001 < AV020.pt001_high) and \
+               (AV020.pt009_low < pt009 < AV020.pt009_high) and \
+               (AV021.pt001_low < pt001 < AV021.pt001_high) and \
+               (AV021.pt009_low < pt009 < AV021.pt009_high):
                 t0_overpressure = time.time()
+            elif self.dry_run: 
+                self.log('PT009 or PT001 out of bounds')
+                self.exit()
 
             # check for overpressure too long, protect AV020 and AV021
             t1_overpressure = time.time()
@@ -254,6 +257,10 @@ class StopCirculation(CryoScript):
                 self.log(msg, True)
                 self.exit()
                 raise RuntimeError(msg)
+
+            # check overpressure before MFC001
+            if self.devices.PT005.readback > 1200 or self.devices.MFC001.readback > self.devices.MFC001.setpoint: 
+                self.devices.BP001.off()
 
             # flow rate in SL/s
             rate = MFC001.readback / 60
@@ -293,11 +300,11 @@ class StartRecovery(CryoScript):
                     'AV024', 'AV025', 'AV027', 'AV029', ]
 
     devices_closed = ['AV026', 'AV023', 'AV030', 'AV028', 'AV009', 'AV032',
-                      'AV013', 'AV017', 'AV016', 'AV050', 'AV051']
+                      'AV013', 'AV017', 'AV016', 'AV051']
 
     devices_off = ['BP002']
 
-    devices_on =  [ 'BP001', 'CP001', 'CP101', 'MP001', 'MP002', 'MFC001',
+    devices_on =  [ 'CP001', 'CP101', 'MP001', 'MP002', 'MFC001',
                     'HTR010', 'HTR012', 'HTR105', 'HTR107']
 
     def exit(self):
@@ -323,6 +330,8 @@ class StartRecovery(CryoScript):
         self.devices.AV023.open()
         self.devices.AV008.open()
         self.devices.AV026.open()
+        self.devices.AV024.closed()
+        self.devices.AV050.open()
 
 class StopRecovery(CryoScript):
     """Wait until pressure is low, isopure is pumped out. Then close AV024, AV025 and turn off BP001"""
@@ -336,7 +345,7 @@ class StopRecovery(CryoScript):
 
     devices_off = ['BP002']
 
-    devices_on =  [ 'BP001', 'CP001', 'CP101', 'MP001', 'MP002', 'MFC001', 'HTR010',
+    devices_on =  [ 'CP001', 'CP101', 'MP001', 'MP002', 'MFC001', 'HTR010',
                     'HTR012', 'HTR105', 'HTR107']
 
     def check_status(self):
@@ -527,9 +536,10 @@ if __name__ == "__main__":
     # THESE SCRIPTS ARE WORKING
     # Comment out steps to not run that step
 
-    with StopCirculation() as script:
-        script(volume_SL=0) # 0 to disable
+    with StopCirculation(dry_run=True) as script:
+        script(volume_SL=1000) # 0 to disable
 
+if False:
     with StartRecovery() as script: # does not toggle or check AV020 and AV021 autocontrol
        script(temperature=30)
 
