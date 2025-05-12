@@ -21,6 +21,8 @@
         function setup(){
             // set table rows and sections
 
+            // PID ---------------------------------------------------------
+
             // fpvs
             set_pid_table_section("FPVs",
                              ["PID_20KShield", "PID_100KShield", "PID_TransLineTemp",
@@ -40,14 +42,22 @@
             // notes and title changes
             // please leave the following line as an example of how to do this
             // document.getElementById("PID_HTR008_title").innerHTML = "PID_HTR008 (not working, unsure why)";
+
+
+            // SCRIPTS ------------------------------------------------------
+            set_script_table_section("Test",
+                [["CryoScriptTester", 'This test has parameter temperature of <span class="ScriptInput" name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/temperature_K" data-odb-editable="1"></span> K'],
+                ["CryoScriptTester", 'A second line, now with a string "<span class="ScriptInput" name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/test2" data-odb-editable="1"></span>" and a number: <span class="ScriptInput" name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/test" data-odb-editable="1"></span>']]);
+
+            setup_script_queue();
         }
 
-        var gStatusInflight = false;
+        var gStatusPIDInflight = false;
         function update_pid_runstate(){
 
             // don't make another request if the last request is still outstanding.
-            if(gStatusInflight) return;
-            gStatusInflight = true;
+            if(gStatusPIDInflight) return;
+            gStatusPIDInflight = true;
 
             mjsonrpc_send_request([
                     mjsonrpc_make_request("cm_exist",{"name":"fe_autostat_pid"}),
@@ -75,7 +85,7 @@
                     }else{
 
                         // set banner
-                        document.getElementById('updateStatus').innerHTML = "fe_autostat_pid program NOT running";
+                        document.getElementById('updateStatus').innerHTML = "fe_autostat_pid program is NOT running";
                         document.getElementById('updateStatus').style.background = "#f58282";
 
                         // disable all checkboxes
@@ -84,7 +94,60 @@
                         }
                     }
 
-                    gStatusInflight = false; // finished async routine
+                    gStatusPIDInflight = false; // finished async routine
+                }).catch(function(error) {
+                    if (error.request) {
+                        var s = mjsonrpc_decode_error(error);
+                        console.log("mjsonrpc_error_alert: " + s);
+                    } else {
+                        console.log("mjsonroc_error_alert: " + error);
+                    }
+                });
+        }
+
+        var gStatusScrInflight = false;
+        function update_scr_runstate(){
+
+            // don't make another request if the last request is still outstanding.
+            if(gStatusScrInflight) return;
+            gStatusScrInflight = true;
+
+            mjsonrpc_send_request([
+                    mjsonrpc_make_request("cm_exist",{"name":"fe_autostat_script"}),
+                ]).then(function (rpc) {
+
+                    // get all input elements
+                    let inputs = document.getElementsByClassName("ScriptInput");
+
+                    // Check the status of the autostat frontend
+                    var prog_exist = rpc[0].result.status;
+
+                    // fe running
+                    if(prog_exist == 1){
+
+                        // set banner
+                        document.getElementById('script_running').innerHTML = "fe_autostat_script program is running";
+                        document.getElementById('script_running').style.background = "#65f7ae";
+
+                        // enable all inputs
+                        for(let i=0; i<inputs.length; i++){
+                            inputs[i].disabled = false;
+                        }
+
+                    // fe not running
+                    }else{
+
+                        // set banner
+                        document.getElementById('script_running').innerHTML = "fe_autostat_script program is NOT running";
+                        document.getElementById('script_running').style.background = "#f58282";
+
+                        // disable all inputs
+                        for(let i=0; i<inputs.length; i++){
+                            inputs[i].disabled = true;
+                        }
+                    }
+
+                    gStatusScrInflight = false; // finished async routine
                 }).catch(function(error) {
                     if (error.request) {
                         var s = mjsonrpc_decode_error(error);
@@ -133,10 +196,65 @@
                 row.insertCell().outerHTML = `<td style="text-align: center;"><input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/${equip}/Settings/Enabled"></input></td>`;
             }
         }
+
+        function set_script_table_section(section, equipments){
+            /*
+                Fill in table rows.
+
+                section: string, title of the section
+                equipments: array of equipment names to populate with
+            */
+
+            const table = document.getElementById("scripts_body");
+
+            // make section
+            let row = table.insertRow();
+            let cell = row.insertCell();
+            cell.outerHTML = `<th colspan="5" class="mtableheader">${section}</th>`;
+
+            // make header
+            row = table.insertRow();
+            let columns = ["Script Name", "Inputs", "Queue"];
+            let width = ["200px", "500px", "70px"];
+
+            for(let i=0; i<columns.length; i++){
+                let cell = row.insertCell();
+                cell.innerHTML = `<b>${columns[i]}</b>`;
+                cell.style = `width: ${width[i]}; text-align: center;`;
+            }
+
+            // make cells
+            for(let i=0; i<equipments.length; i++){
+                row = table.insertRow();
+                let equip = equipments[i][0];
+                let desc = equipments[i][1];
+
+                row.insertCell().innerHTML = `<a href="/Equipment/${equip}/Settings"><div id=${equip}_title>${equip}</div></a>`;
+                row.insertCell().innerHTML = desc;
+                row.insertCell().outerHTML = `<td align="center"><button class="ScriptInput" id="add_${equip}">Add</button></td>`;
+            }
+        }
+
+        function setup_script_queue(){
+            const table = document.getElementById("scripts_body");
+
+            // make section
+            let row = table.insertRow();
+            let cell = row.insertCell();
+            cell.outerHTML = `<th colspan="5" class="mtableheader">Queue</th>`;
+
+            row = table.insertRow();
+            cell = row.insertCell();
+            cell.outerHTML = '<td align="center"><button class="ScriptInput" id="runscript">Run Queued Scripts</button></td>';
+            cell = row.insertCell();
+            cell.outerHTML = '<td align="center"><button class="ScriptInput" id="stopscript">Stop Execution</button></td>';
+            cell = row.insertCell();
+            cell.outerHTML = '<td align="center"><button class="ScriptInput" id="clearscript">Clear All</button></td>';
+        }
     </script>
 </head>
 
-<body class="mcss" onload="setup();mhttpd_init('AutoStat');setInterval(update_pid_runstate,3000);update_pid_runstate()">
+<body class="mcss" onload="setup();mhttpd_init('AutoStat');setInterval(update_pid_runstate,3000);update_pid_runstate();setInterval(update_scr_runstate,3000);update_scr_runstate();">
 
     <!-- header and side navigation will be filled in mhttpd_start -->
     <div id="mheader"></div>
@@ -150,9 +268,7 @@
                     <tr style="height: 50px">
                         <th colspan="5" class="mtableheader"><h1>PID Control Loops</h1></th>
                     </tr>
-                    <tr>
-                        <td colspan="5" style="text-align: center"> <b><div id="updateStatus"></b></td>
-                    </tr>
+                    <tr><td colspan="5" style="text-align: center"> <b><div id="updateStatus"></b></td></tr>
                 </thead>
                 <tbody id="table_body"></tbody>
             </table>
@@ -163,79 +279,9 @@
                     <tr style="height: 50px">
                         <th colspan="5" class="mtableheader"><h1>Scripts [THIS TABLE UNDER DEVELOPMENT]</h1></th>
                     </tr>
-                    <tr>
-                        <td colspan="5" style="text-align: center"> <b><div id="currently_running"> </div></b></td>
-                    </tr>
+                    <tr><td colspan="5" style="text-align: center"> <div id="script_running"> </div></td></tr>
                 </thead>
-                <tbody id="scripts">
-                    <tr>
-                        <th colspan="5" class="mtableheader">He Purifier</th>
-                    </tr>
-                    <tr>
-                        <td align="center"><b>Script Name</b></td>
-                        <td align="center"><b>Inputs</b></td>
-                        <td align="center"><b>Queue</b></td>
-                    </tr>
-                    <tr>
-                        <td>StopRecovery</td>
-                        <td>
-                            <label>When PT004 and PT005 <
-                                <input type="number" step="0.01" size="2", value="3", id="StopRecovery_pt_thresh"> mbar
-                            </label>
-                        </td>
-                        <td align="center"><button id="add_StopRecovery">Add</button></td>
-                    </tr>
-                    <tr>
-                        <td>StartRegeneration</td>
-                        <td>
-                            <label>Set temperature =
-                                <input type="number" step="1" size="2", value="180", id="StartRegeneration_temperature"> K,
-                            </label>
-                            <label>then wait until PT208 >
-                                <input type="number" step="0.01" size="2", value="1", id="StartRegeneration_fm208_at_least"> SLM
-                            </label>
-                        </td>
-                        <td align="center"><button id="add_StartRegeneration">Add</button></td>
-                    </tr>
-                    <tr>
-                        <td>StopRegeneration</td>
-                        <td>
-                            <label>When temperatures = <input type="number" step="1" size="2", value="180", id="StopRegeneration_temperature"> K and PT208 <
-                                <input type="number" step="0.01" size="2", value="0.25", id="StopRegeneration_fm208_thresh"> SLM
-                            </label>
-                        </td>
-                        <td align="center"><button id="add_StopRegeneration">Add</button></td>
-                    </tr>
-                    <tr>
-                        <td>StartCooling</td>
-                        <td>
-                            <label>Set temperature =
-                                <input type="number" step="1" size="2", value="45", id="StartCooling_temperature"> K
-                            </label>
-                        </td>
-                        <td align="center"><button id="add_StartCooling">Add</button></td>
-                    </tr>
-                    <tr>
-                        <td>StopCooling</td>
-                        <td>
-                            <label>When temperature ==
-                                <input type="number" step="1" size="2", value="45", id="StopCooling_temperature"> K
-                            </label>
-                        </td>
-                        <td align="center"><button id="add_StopCooling">Add</button></td>
-                    </tr>
-
-
-                    <tr>
-                        <th colspan="5" class="mtableheader">
-                            Queued
-                        </th>
-                    </tr>
-                    <tr>
-                        <td colspan="5" align="center"><button id="runscript">Run Queued Scripts</button></td>
-                    </tr>
-
-                </tbody>
+                <tbody id="scripts_body"></tbody>
             </table>
         </section>
     </div>

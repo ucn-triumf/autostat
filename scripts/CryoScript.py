@@ -49,7 +49,7 @@ class CryoScript(midas.frontend.EquipmentBase):
         ('wait_sleep_s', 60),
         ('wait_print_delay_s', 900),
         ("_queue_order", -1), # if 0 run this script
-        ("_is_running", False),
+        ("Enabled", False),
     ])
 
     def __init__(self, client, logger):
@@ -191,11 +191,11 @@ class CryoScript(midas.frontend.EquipmentBase):
         (every 100ms in this case). It should return either a `cdms.event.Event`
         or None (if we shouldn't write an event).
         """
-        if self.client.odb_get(f'{self.odb_settings_dir}/_is_running'):
+        if self.client.odb_get(f'{self.odb_settings_dir}/Enabled'):
             self.log(f'started')
             self.check_status()
             self.run()
-            self.client.odb_set(f'{self.odb_settings_dir}/_is_running', False)
+            self.client.odb_set(f'{self.odb_settings_dir}/Enabled', False)
             self.run_state = None
             self.log(f'completed')
 

@@ -397,7 +397,6 @@ class EpicsAV(EpicsDevice):
             if self.dry_run:
                 break
             else:
-                print(suffix)
                 self.pv[suffix].put(1)
                 time.sleep(self.sleep_time)
 

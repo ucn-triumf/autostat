@@ -3,7 +3,8 @@
 # May 2025
 
 import time
-from CryoScript2 import CryoScript
+import collections
+from CryoScript import CryoScript
 
 # make scripts ------------------------------------------------------------
 class StartCooling(CryoScript):
@@ -487,3 +488,16 @@ class StopRegeneration(CryoScript):
         # turn off pump
         self.devices.BP002.off()
 
+class CryoScriptTester(CryoScript):
+    # default settings
+    DEFAULT_SETTINGS = collections.OrderedDict([
+        ("temperature_K", 45),
+        ("test", 150),
+        ("test2", "a string"),
+        ("timeout_s", 10),
+        ('dry_run', False),
+        ('wait_sleep_s', 60),
+        ('wait_print_delay_s', 900),
+        ("Enabled", False),
+        ("_parnames", ["temperature_K", "test", "test2"]),
+    ])

@@ -1,8 +1,10 @@
 import midas
 import midas.frontend
-import he_purifier2 as he_purifier
 import logging
 from logging.handlers import RotatingFileHandler
+
+import he_purifier
+import CryoScriptSequencer
 
 class MyFrontend(midas.frontend.FrontendBase):
     """
@@ -38,6 +40,7 @@ class MyFrontend(midas.frontend.FrontendBase):
         # add equipment ------------------------------------------------------
 
         # from he_purifier
+        self.add_equipment(CryoScriptSequencer.CryoScriptSequencer(self.client))
         self.add_equipment(he_purifier.CryoScriptTester(self.client, logger))
         # self.add_equipment(he_purifier.StartCooling(self.client, logger))
         # self.add_equipment(he_purifier.StopCooling(self.client, logger))
