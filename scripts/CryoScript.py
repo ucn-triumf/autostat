@@ -46,7 +46,6 @@ class CryoScript(midas.frontend.EquipmentBase):
     DEFAULT_SETTINGS = collections.OrderedDict([
         ("timeout_s", 10),
         ('dry_run', False),
-        ('wait_sleep_s', 60),
         ('wait_print_delay_s', 900),
         ("_queue_order", -1), # if 0 run this script
         ("Enabled", False),
@@ -254,7 +253,7 @@ class CryoScript(midas.frontend.EquipmentBase):
                                                 dry_run=self.dry_run)
 
     def wait(self, condition, printfn=None):
-        """Pause execution until condition evaluates to True
+        """Pause execution until condition evaluates to True or Enabled is False
 
         Args:
             condition (function handle): function with prototype fn(), which returns True if execution should continue, else wait.
@@ -271,12 +270,13 @@ class CryoScript(midas.frontend.EquipmentBase):
             printfn = lambda : 'Condition not satisfied. Waiting...'
 
         t0 = time.time()
-        while not condition():
+        while not condition() and self.settings['Enabled']:
             if (time.time()-t0) > self.settings['wait_print_delay_s']:
                 t0 = time.time()
                 self.log(printfn())
 
-            time.sleep(self.settings['wait_sleep_s'])
+            # sleep 1s
+            self.client.communicate(1000)
 
     def wait_until_greaterthan(self, name, thresh):
         """Block program execution until device readback is above the theshold

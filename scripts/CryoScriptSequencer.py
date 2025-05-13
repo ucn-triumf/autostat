@@ -27,6 +27,7 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
         ("_inputs", ['']*64),   # parametrs to pass to equipment
         ("_current", -1),       # index of currently running equipment
         ("_queue_length", 0),   # number of queued scripts
+        ("_nloops", 0),         # number of loops of the queue remaining
     ])
 
     def __init__(self, client):
@@ -119,10 +120,18 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
 
         # early end condition: run a script that doesn't exist
         if idx >= self.settings['_queue_length']:
-            self.client.odb_set(f'{self.odb_settings_dir}/Enabled', False)
-            self.client.odb_set(f'{self.odb_settings_dir}/_current', -1)
-            self.client.msg('CryoScriptSequencer stopped')
-            return
+
+            # start the next loop
+            if self.settings['_nloops'] > 0:
+                self.client.odb_set(f'{self.odb_settings_dir}/_nloops', self.settings['_nloops']-1)
+                idx = 0
+                self.client.odb_set(f'{self.odb_settings_dir}/_current', idx)
+
+            # end sequencer
+            else:
+                self.client.odb_set(f'{self.odb_settings_dir}/Enabled', False)
+                self.client.odb_set(f'{self.odb_settings_dir}/_current', -1)
+                return
 
         # get the script settings
         parstrs = self.settings['_inputs'][idx]
@@ -154,10 +163,6 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
         if not self.settings['Enabled']:
             return
 
-        # check if functions exist
-        if self.settings['_queue_length'] == 0:
-            self.client.odb_set(f'{self.odb_settings_dir}/Enabled', False)
-
         # run next (needs to be on run loop after setting the ODB parameters)
         if self.do_run_next:
             # enable run
@@ -167,11 +172,6 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
             # watch to start the next run
             self.client.odb_watch(f'/Equipment/{name}/Settings/Enabled', self.setup_next, True)
             self.do_run_next = False
-
-        # check if at start of sequencer
-        idx = self.settings['_current']
-        if idx < 0:
-            self.setup_next()
 
     def detailed_settings_changed_func(self, path, idx, new_value):
         """
@@ -195,5 +195,16 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
         """
 
         if 'Enabled' in path:
-            if new_value:   self.client.msg('CryoScriptSequencer started')
-            else:           self.client.msg('CryoScriptSequencer stopped')
+            if new_value:
+                self.client.msg('CryoScriptSequencer started')
+
+                # check if functions exist
+                if self.settings['_queue_length'] == 0:
+                    self.client.odb_set(f'{self.odb_settings_dir}/Enabled', False)
+                    self.client.msg('No items in queue')
+                    return
+
+                # start the sequence
+                self.setup_next()
+            else:
+                self.client.msg('CryoScriptSequencer stopped')
