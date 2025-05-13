@@ -501,3 +501,7 @@ class CryoScriptTester(CryoScript):
         ("Enabled", False),
         ("_parnames", ["temperature_K", "test", "test2"]),
     ])
+
+    def run(self):
+        print(self.settings['test2'], self.client.odb_get(f'{self.odb_settings_dir}/test2'))
+

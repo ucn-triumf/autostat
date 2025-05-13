@@ -42,7 +42,11 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
         # You MUST call midas.frontend.EquipmentBase.__init__ in your equipment's __init__ method!
         midas.frontend.EquipmentBase.__init__(self, client, 'CryoScriptSequencer', default_common, self.DEFAULT_SETTINGS)
 
+        self.do_run_next = False
+
     def exit(self):
+
+        # stop watching all functions
         pass
 
     def queue_add(self, name):
@@ -73,7 +77,7 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
         self.client.odb_set(f'{self.odb_settings_dir}/_functions', ['']*self.QUEUE_MAX_LEN)
         self.client.odb_set(f'{self.odb_settings_dir}/_inputs', ['']*self.QUEUE_MAX_LEN)
         self.client.odb_set(f'{self.odb_settings_dir}/_queue_length', 0)
-        self.client.odb_set(f'{self.odb_settings_dir}/_current', -1)
+        self.client.odb_set(f'{self.odb_settings_dir}/_current', 0)
 
     def queue_remove(self, idx):
         """Remove an equipment from the queue
@@ -97,15 +101,28 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
         self.client.odb_set(f'{self.odb_settings_dir}/_inputs', inpts)
         self.client.odb_set(f'{self.odb_settings_dir}/_queue_length', n)
 
-    def run_next(self):
-        """Run the next script in the queue"""
+    def setup_next(self, *args, **kwargs):
 
+        # get current run
         idx = self.settings['_current']
+
+        # stop watching old run
+        try:
+            name = self.settings['_functions'][idx]
+            self.client.odb_stop_watching(f'/Equipment/{name}/Settings/Enabled')
+        except KeyError:
+            pass
+
+        # start the next run
+        idx += 1
+        self.client.odb_set(f'{self.odb_settings_dir}/_current', idx)
 
         # early end condition: run a script that doesn't exist
         if idx >= self.settings['_queue_length']:
-            self.client.msg(f'Attempted to execute script {idx} when queue length is {self.settings["_queue_length"]}', True)
             self.client.odb_set(f'{self.odb_settings_dir}/Enabled', False)
+            self.client.odb_set(f'{self.odb_settings_dir}/_current', -1)
+            self.client.msg('CryoScriptSequencer stopped')
+            return
 
         # get the script settings
         parstrs = self.settings['_inputs'][idx]
@@ -121,8 +138,8 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
                 pass
             self.client.odb_set(f'/Equipment/{name}/Settings/{key}', val)
 
-        # enable run
-        self.client.odb_set(f'/Equipment/{name}/Settings/Enabled', True)
+        # start run on next runloop
+        self.do_run_next = True
 
     def readout_func(self):
         """
@@ -137,12 +154,24 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
         if not self.settings['Enabled']:
             return
 
-        # check if run has ended
-        idx = self.settings['_current']
-        name = self.settings['_functions'][idx]
+        # check if functions exist
+        if self.settings['_queue_length'] == 0:
+            self.client.odb_set(f'{self.odb_settings_dir}/Enabled', False)
 
-        if not self.client.odb_get(f'/Equipment/{name}/Settings/Enabled'):
-            self.run_next()
+        # run next (needs to be on run loop after setting the ODB parameters)
+        if self.do_run_next:
+            # enable run
+            name = self.settings['_functions'][self.settings['_current']]
+            self.client.odb_set(f'/Equipment/{name}/Settings/Enabled', True)
+
+            # watch to start the next run
+            self.client.odb_watch(f'/Equipment/{name}/Settings/Enabled', self.setup_next, True)
+            self.do_run_next = False
+
+        # check if at start of sequencer
+        idx = self.settings['_current']
+        if idx < 0:
+            self.setup_next()
 
     def detailed_settings_changed_func(self, path, idx, new_value):
         """
@@ -164,4 +193,7 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
             * new_value (int/float/str etc) - The new ODB value (the single array
                 element if it's an array that changed)
         """
-        pass
+
+        if 'Enabled' in path:
+            if new_value:   self.client.msg('CryoScriptSequencer started')
+            else:           self.client.msg('CryoScriptSequencer stopped')
