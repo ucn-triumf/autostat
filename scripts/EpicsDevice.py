@@ -388,6 +388,11 @@ class EpicsAV(EpicsDevice):
             if 'open' in state: attr = 'is_closed'
             else:               attr = 'is_open'
 
+        # early stop condition
+        if getattr(self, attr):
+            self._log(f'{self.path} is already {state}', False)
+            return
+
         # switch with timeout
         t0 = time.time()
         while getattr(self, attr):
