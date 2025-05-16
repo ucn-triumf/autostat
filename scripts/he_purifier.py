@@ -259,7 +259,7 @@ class StopCirculation(CryoScript):
                 raise RuntimeError(msg)
 
             # check overpressure before MFC001
-            if self.devices.PT005.readback > 1200 or self.devices.MFC001.readback > self.devices.MFC001.setpoint:
+            if (self.devices.PT005.readback > 1200 or self.devices.MFC001.readback > self.devices.MFC001.setpoint) and self.devices.BP001.is_on:
                 self.devices.BP001.off()
 
             # flow rate in SL/s
@@ -508,7 +508,7 @@ if __name__ == "__main__":
 
     # THESE SCRIPTS ARE WORKING
     # Comment out steps to not run that step
-    
+
     # start this step as soon as circulation begins, starts integrating when script is launched
     with StopCirculation() as script:
         script(volume_SL=23500) # 0 to disable
