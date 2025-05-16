@@ -260,6 +260,7 @@ class StopCirculation(CryoScript):
 
             # check overpressure before MFC001
             if (self.devices.PT005.readback > 1200 or self.devices.MFC001.readback > self.devices.MFC001.setpoint) and self.devices.BP001.is_on:
+                self.log(f'Problem detected: PT005 pressure is {self.devices.PT005.readback} (should be less than 1200). Or MFC001 readback ({self.devices.MFC001.readback}) > setpoint (self.devices.MFC001.setpoint)')
                 self.devices.BP001.off()
 
             # flow rate in SL/s
