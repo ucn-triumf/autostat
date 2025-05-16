@@ -240,13 +240,13 @@ class StopCirculation(CryoScript):
             # check for overpressure
             pt001 = self.devices.PT001.readback
             pt009 = self.devices.PT009.readback
-            
+
             if (AV020.pt001_low < pt001 < AV020.pt001_high) and \
                (AV020.pt009_low < pt009 < AV020.pt009_high) and \
                (AV021.pt001_low < pt001 < AV021.pt001_high) and \
                (AV021.pt009_low < pt009 < AV021.pt009_high):
                 t0_overpressure = time.time()
-            elif self.dry_run: 
+            elif self.dry_run:
                 self.log('PT009 or PT001 out of bounds')
                 self.exit()
 
@@ -259,7 +259,7 @@ class StopCirculation(CryoScript):
                 raise RuntimeError(msg)
 
             # check overpressure before MFC001
-            if self.devices.PT005.readback > 1200 or self.devices.MFC001.readback > self.devices.MFC001.setpoint: 
+            if self.devices.PT005.readback > 1200 or self.devices.MFC001.readback > self.devices.MFC001.setpoint:
                 self.devices.BP001.off()
 
             # flow rate in SL/s
@@ -330,53 +330,26 @@ class StartRecovery(CryoScript):
         self.devices.AV023.open()
         self.devices.AV008.open()
         self.devices.AV026.open()
-        self.devices.AV024.closed()
+        self.devices.AV024.close()
         self.devices.AV050.open()
 
 class StopRecovery(CryoScript):
     """Wait until pressure is low, isopure is pumped out. Then close AV024, AV025 and turn off BP001"""
 
     devices_open = ['AV008', 'AV010', 'AV011', 'AV012', 'AV014', 'AV019', 'AV020',
-                    'AV023', 'AV024', 'AV025', 'AV026', 'AV027', 'AV029', ]
+                    'AV023', 'AV025', 'AV026', 'AV027', 'AV029', ]
 
     devices_closed = ['AV007', 'AV009', 'AV013', 'AV015', 'AV016', 'AV017', 'AV018',
-                      'AV021', 'AV022', 'AV028', 'AV030', 'AV031',
+                      'AV021', 'AV022', 'AV024', 'AV028', 'AV030', 'AV031',
                       'AV032', 'AV034',]
 
     devices_off = ['BP002']
 
-    devices_on =  [ 'CP001', 'CP101', 'MP001', 'MP002', 'MFC001', 'HTR010',
+    devices_on =  [ 'CP001', 'CP101', 'MP001', 'MP002', 'MFC001', 'HTR010', 'BP001',
                     'HTR012', 'HTR105', 'HTR107']
 
     def check_status(self):
         super().check_status()
-
-        # check AV autocontrol status
-        # for av in ['AV020', 'AV021']:
-        #     if self.devices[av].is_autoenable:
-        #         msg = f'{av} autocontrol is enabled when it should be disabled'
-        #         if self.dry_run:
-        #             self.log(msg)
-        #         else:
-                    # raise RuntimeError(msg)
-
-        # check autostat enable (should be off)
-        for pid in ['PID_PUR_ISO70K', 'PID_PUR_ISO20K', 'PID_PUR_HE20K', 'PID_PUR_HE70K']:
-            if self.get_odb(f'/Equipment/{pid}/Settings/Enabled'):
-                msg = f'{pid} is enabled when it should be disabled'
-                if self.dry_run:
-                    self.log(msg)
-                else:
-                    raise RuntimeError(msg)
-
-        # check that heaters are zero
-        for htr in ['HTR010', 'HTR012', 'HTR105', 'HTR107']:
-            if self.devices[htr].readback != 0:
-                msg = f'{htr} should have setpoint zero, but is {self.devices[htr].readback} {self.devices[htr].readback_units}'
-                if self.dry_run:
-                    self.log(msg)
-                else:
-                    raise RuntimeError(msg)
 
     def run(self, pt_thresh=3):
 
@@ -535,28 +508,28 @@ if __name__ == "__main__":
 
     # THESE SCRIPTS ARE WORKING
     # Comment out steps to not run that step
+    
+    # start this step as soon as circulation begins, starts integrating when script is launched
+    with StopCirculation() as script:
+        script(volume_SL=23500) # 0 to disable
 
-    with StopCirculation(dry_run=True) as script:
-        script(volume_SL=1000) # 0 to disable
-
-if False:
     with StartRecovery() as script: # does not toggle or check AV020 and AV021 autocontrol
-       script(temperature=30)
+       script(temperature=30) # htr setpoint when recovering, AV050 must be bypassed
 
     with StopRecovery() as script:
-       script(pt_thresh=4.25)
+       script(pt_thresh=4)    # pressure threshold to stop recovery
 
     with StartRegeneration() as script:
        script(temperature=180, fm208_at_least=1)
 
     with StopRegeneration() as script:
-        script(temperature=180, fm208_thresh = 0.25)
+       script(temperature=180, fm208_thresh = 0.25)
 
     with StartCooling() as script:
-        script(temperature = 30)
+       script(temperature = 30)
 
-    with StopCooling() as script:
-        script(temperature = 30)
+    #with StopCooling() as script:
+     #   script(temperature = 30)
 
     # BELOW THIS POINT IS DRY_RUN ONLY (UNIMPLEMENTED)
 
