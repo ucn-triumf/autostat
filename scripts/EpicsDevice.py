@@ -222,7 +222,7 @@ class EpicsDevice(object):
             state = 'off'
 
         # early stop condition
-        if getattr(self, attr):
+        if not getattr(self, attr):
             self._log(f'{self.path} is already {state}', False)
             return
 
@@ -389,7 +389,7 @@ class EpicsAV(EpicsDevice):
             else:               attr = 'is_open'
 
         # early stop condition
-        if getattr(self, attr):
+        if not getattr(self, attr):
             self._log(f'{self.path} is already {state}', False)
             return
 
@@ -440,11 +440,6 @@ class EpicsAVNormOpen(EpicsAV):
     def open(self):
         """synonym for on, but for valves"""
         self._switch(on=False)
-
-    @property
-    def is_closed(self):        return not self.is_open
-    @property
-    def is_open(self):          return self.is_on
 
 class EpicsCG(EpicsDevice):
     readback_name = 'RDVAC'
