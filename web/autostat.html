@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html class="mcss">
+<!-- NEED MOVE UP/DOWN BUTTONS -->
 <head>
     <meta charset="UTF-8">
     <link rel="stylesheet" href="midas.css">
@@ -13,9 +14,9 @@
             float: left;
             width: 50%;
         }
-        button {
+        /* button {
             width: 90%;
-        }
+        } */
     </style>
     <title>AutoStat</title>
     <script>
@@ -65,10 +66,23 @@
 
             req.push(mjsonrpc_make_request("cm_exist", {"name":"fe_autostat_pid"}));
             req.push(mjsonrpc_make_request("cm_exist",{"name":"fe_autostat_script"}));
-            req.push(mjsonrpc_make_request("db_get_values",{"paths":["/Equipment/CryoScriptSequencer/Settings/Enabled"]}));
+            req.push(mjsonrpc_make_request("db_get_values",
+                {"paths":["/Equipment/CryoScriptSequencer/Settings/Enabled",
+                          "/Equipment/CryoScriptSequencer/Settings/_functions",
+                          "/Equipment/CryoScriptSequencer/Settings/_current",
+                          "/Equipment/CryoScriptSequencer/Settings/_queue_length",
+                ]}));
 
             // make batch request
             mjsonrpc_send_request(req).then(function(rpc){
+
+                // get req outputs
+                let pid_exists = rpc[0].result.status;
+                let script_exists = rpc[1].result.status;
+                let seq_enabled = rpc[2].result.data[0];
+                let seq_fnlist = rpc[2].result.data[1];
+                let seq_idx = rpc[2].result.data[2];
+                let seq_queuelen = rpc[2].result.data[3];
 
                 // PID program is running ------------------------------
 
@@ -76,7 +90,7 @@
                 let checkboxes = document.getElementsByClassName("AutoEnable");
 
                 // fe running
-                if(rpc[0].result.status == 1){
+                if(pid_exists == 1){
 
                     // set banner
                     document.getElementById('updateStatus').innerHTML = "fe_autostat_pid program is running";
@@ -105,7 +119,7 @@
                 let inputs = document.getElementsByClassName("ScriptInput");
 
                 // fe running
-                if(rpc[1].result.status == 1){
+                if(script_exists == 1){
                     // set banner
                     document.getElementById('script_running').innerHTML = "fe_autostat_script program is running";
                     document.getElementById('script_running').style.background = "#65f7ae";
@@ -125,10 +139,14 @@
                     for(let i=0; i<inputs.length; i++){
                         inputs[i].disabled = true;
                     }
+
+                    // disable sequencer
+                    seq_enabled = false;
+                    mjsonrpc_db_paste(['/Equipment/CryoScriptSequencer/Settings/Enabled'], [false]);
                 }
 
                 // SEQUENCER is enabled or not -------------------------------
-                if(rpc[2].result.data[0]){
+                if(seq_enabled){
                     // set color of banner
                     document.getElementById('queue_header').style.background = "#65f7ae";
                     document.getElementById('queue_header').style.color = "#000000";
@@ -150,6 +168,21 @@
                     attr.nodeValue = true;
                     document.getElementById("startscript").attributes.setNamedItem(attr);
                 }
+
+                // HIGHLIGHT CURRENTLY RUNNING -------------------------------
+                for(let i=0; i<seq_queuelen; i++){
+                    if(i === seq_idx && seq_enabled){
+                        document.getElementById(`queue_row${i}`).style.background = "#ffffb3";
+                    } else {
+                        document.getElementById(`queue_row${i}`).style.background = "";
+                    }
+                }
+
+                // WATCH RUNNING SCRIPT TO CHECK FOR CRASHES -----------------
+
+                // mjsonrpc_db_get_values([`/Equipment/${fname}`])
+
+
 
                 gStatusInflight = false; // finished async routine
             }).catch(function(error) {
@@ -220,11 +253,13 @@
             row = table.insertRow();
             let columns = ["Script Name", "Inputs", "Queue"];
             let width = ["200px", "500px", "70px"];
+            let colspan = [2,1,2];
 
             for(let i=0; i<columns.length; i++){
                 let cell = row.insertCell();
                 cell.innerHTML = `<b>${columns[i]}</b>`;
                 cell.style = `width: ${width[i]}; text-align: center;`;
+                cell.colSpan = colspan[i];
             }
 
             // make cells
@@ -233,9 +268,12 @@
                 let equip = equipments[i][0];
                 let desc = equipments[i][1];
 
-                row.insertCell().innerHTML = `<a href="/Equipment/${equip}/Settings"><div id=${equip}_title>${equip}</div></a>`;
+                let cell = row.insertCell();
+                cell.innerHTML = `<a href="/Equipment/${equip}/Settings"><div id=${equip}_title>${equip}</div></a>`;
+                cell.colSpan = 2;
+
                 row.insertCell().innerHTML = desc;
-                row.insertCell().outerHTML = `<td align="center"><button class="ScriptInput" id="add_${equip}">Add</button></td>`;
+                row.insertCell().outerHTML = `<td align="center" colspan="5"><button class="ScriptInput" id="add_${equip}" style="width: 90%" onclick="queue_edit('add', '${equip}')">Add</button></td>`;
             }
         }
 
@@ -251,29 +289,59 @@
             row = table.insertRow();
             cell = row.insertCell();
 
+            cell.outerHTML = `<td align="center" colspan="2";>
+                <button class="modbbutton mbutton"
+                        data-odb-path="/Equipment/CryoScriptSequencer/Settings/Enabled"
+                        data-odb-value="true"
+                        id="startscript"
+                        style="width: 90%"
+                        onclick="update_runstate()">Start</button>
+                </td>`;
+            cell = row.insertCell();
+            cell.innerHTML = 'At end, run queue <span name="modbvalue" data-odb-path="/Equipment/CryoScriptSequencer/Settings/_nloops" data-odb-editable="1"></span> more times<br>On start, run queue from index <span name="modbvalue" data-odb-path="/Equipment/CryoScriptSequencer/Settings/_current" data-odb-editable="1"></span>';
+            cell = row.insertCell();
+            cell.outerHTML = `<td align="center" colspan="5" >
+                <button class="ScriptInput"
+                        id="clearscript"
+                        style="width: 90%"
+                        onclick="queue_edit('clear', '')">Clear All</button>
+                </td>`;
 
-            cell.outerHTML = '<td align="center"><button class="modbbutton mbutton" data-odb-path="/Equipment/CryoScriptSequencer/Settings/Enabled" data-odb-value="true" id="startscript" onclick="update_runstate()">Start</button></td>';
-            cell = row.insertCell();
-            cell.outerHTML = '<td align="center">Loop queue <span name="modbvalue" data-odb-path="/Equipment/CryoScriptSequencer/Settings/_nloops" data-odb-editable="1"></span> more times</td>';
-            cell = row.insertCell();
-            cell.outerHTML = '<td align="center"><button class="ScriptInput" id="clearscript">Clear All</button></td>';
+            // more headers
+            row = table.insertRow();
+            let columns = ["Script Name", "Inputs", "Queue"];
+            let colspan = [2,1,2];
+            for(let i=0; i<columns.length; i++){
+                cell = row.insertCell();
+                cell.innerHTML = `<b>${columns[i]}</b>`;
+                cell.style = 'text-align: center;';
+                cell.colSpan = colspan[i];
+            }
 
             gen_script_queue();
         }
 
         function gen_script_queue(){
-            const table = document.getElementById("scripts_body");
+
+            // clear the old table
+            var table_old = document.getElementById("queued_scripts");
+            var table = document.createElement('tbody');
+            table.id = "queued_scripts";
+            table_old.parentNode.replaceChild(table, table_old)
 
             // get queue size
             mjsonrpc_db_get_values(['/Equipment/CryoScriptSequencer/Settings/_queue_length']).then(function(rpc) {
                 let queue_len = rpc.result.data[0];
 
-                // queue headers
-
-
                 // queue
                 for(let i=0; i<queue_len; i++){
                     row = table.insertRow();
+                    row.id = `queue_row${i}`;
+
+                    // script index
+                    cell = row.insertCell();
+                    cell.innerHTML = `${i}`;
+                    cell.align = 'center';
 
                     // script name
                     cell = row.insertCell();
@@ -283,9 +351,26 @@
                     cell = row.insertCell();
                     cell.innerHTML = `<div class="modbvalue" data-odb-editable="1" data-odb-path = "/Equipment/CryoScriptSequencer/Settings/_inputs[${i}]"></div>`;
 
-                    // remove button
+                    // up and down buttons
                     cell = row.insertCell();
-                    cell.outerHTML = `<td align="center"><button class="ScriptInput" id="rmscript${i}">Remove</button></td>`;
+                    cell.outerHTML = `<td align="center">
+                        <button class="ScriptInput"
+                                id="upscript${i}"
+                                style="height:20px"
+                                onclick="queue_edit('up', '${i}')">▲</button>
+                        <button class="ScriptInput"
+                                id="upscript${i}"
+                                style="height:20px"
+                                onclick="queue_edit('down', '${i}')">▼</button>
+                        </td>`;
+
+                    // remove button, up and down buttons
+                    cell = row.insertCell();
+                    cell.outerHTML = `<td align="center">
+                        <button class="ScriptInput"
+                                id="rmscript${i}"
+                                onclick="queue_edit('remove', '${i}')">×</button>
+                        </td>`;
                 }
             }).catch(function(error) {
                 if (error.request) {
@@ -297,10 +382,72 @@
             });
         }
 
+        // rpc communication with python sequencer ---------------------------
+
+        function alert_rpc_error(status, reply) {
+            // Give the user a nicer message if the error code is 103 (meaning that
+            // the requested client wasn't found). dlgAlert comes from controls.js.
+            if (status == 103) {
+                dlgAlert("The pytest client must be running for this functionality to work.");
+            } else {
+                dlgAlert("Failed to perform action on autostat page!<div style='text-align:left'><br>Status code: " + status + "<br>Message: " + reply + "</div>");
+            }
+        }
+
+        function parse_rpc_response(rpc_result) {
+            // Convert an RPC result into a status code and message string.
+            // In the python code we specify a flag that means the main
+            // rpc_result.status is always 1 if the python code ran, and the
+            // "real" status code is embedded in the reply string.
+            //
+            // See the notes in midas.client.MidasClient.register_jrpc_callback()
+            // for the rationale.
+            let status = rpc_result.status;
+            let reply = "";
+
+            if (status == 1) {
+                // Only get a reply from mjsonrpc if status is 1
+                let parsed = JSON.parse(rpc_result.reply);
+                status = parsed["code"];
+                reply = parsed["msg"];
+            }
+
+            return [status, reply];
+        }
+
+        function queue_edit(mode, arg){
+            // add script to queue
+
+            let params = Object()
+
+            // The client we want to talk to. Note that it matches the name
+            // in the python code when we call the MidasClient constructor.
+            params.client_name = "fe_autostat_script";
+
+            // The command we want to run. The python code only has one
+            // function that gets called, but the command is provided as an
+            // argument to it (see rpc_handler() function).
+            params.cmd = mode;
+
+            // Arguments to pass. Must be a string.
+            params.args = arg;
+
+            mjsonrpc_call("jrpc", params).then(function(rpc) {
+                let [status, reply] = parse_rpc_response(rpc.result);
+                if (status == 1) {
+                    gen_script_queue();
+                } else {
+                    alert_rpc_error(status, reply);
+                }
+            }).catch(function(error) {
+                mjsonrpc_error_alert(`Autostat webpage error: ${error}`);
+            });
+        }
+
     </script>
 </head>
 
-<body class="mcss" onload="setup();mhttpd_init('AutoStat');setInterval(update_runstate,3000);update_runstate();">
+<body class="mcss" onload="setup();mhttpd_init('AutoStat');setInterval(update_runstate,100);update_runstate();">
 
     <!-- header and side navigation will be filled in mhttpd_start -->
     <div id="mheader"></div>
@@ -328,6 +475,7 @@
                     <tr><td colspan="5" style="text-align: center" id="script_running"></td></tr>
                 </thead>
                 <tbody id="scripts_body"></tbody>
+                <tbody id="queued_scripts"></tbody>
             </table>
         </section>
     </div>

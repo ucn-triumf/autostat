@@ -47,8 +47,8 @@ class CryoScript(midas.frontend.EquipmentBase):
         ("timeout_s", 10),
         ('dry_run', False),
         ('wait_print_delay_s', 900),
-        ("_queue_order", -1), # if 0 run this script
         ("Enabled", False),
+        ("_exit_with_error", False),    # if true, script exited unexpectedly
     ])
 
     def __init__(self, client, logger):
@@ -134,11 +134,11 @@ class CryoScript(midas.frontend.EquipmentBase):
         self.log(f'All checks passed', False)
 
     @property
-    def dry_run(self):  return self.settings['dry_run']
+    def dry_run(self):      return bool(self.client.odb_get(f'{self.odb_settings_dir}/dry_run'))
     @property
-    def equip_name(self):     return self.__class__.__name__
+    def equip_name(self):   return self.__class__.__name__
     @property
-    def timeout(self):  return self.settings['timeout_s']
+    def timeout(self):      return self.settings['timeout_s']
 
     def exit(self):
         """Put the system into a safe state upon error or exit
@@ -148,7 +148,9 @@ class CryoScript(midas.frontend.EquipmentBase):
         Args:
             state: define system state to select between different exit strategies
         """
-        pass
+
+        # must have the following to ensure that the sequencer knows to start the next script in the queue
+        self.client.odb_set('/Equipment/CryoScriptSequencer/Settings/_script_is_running', False)
 
     def get_odb(self, path):
         return self.client.odb_get(path)
@@ -190,13 +192,7 @@ class CryoScript(midas.frontend.EquipmentBase):
         (every 100ms in this case). It should return either a `cdms.event.Event`
         or None (if we shouldn't write an event).
         """
-        if self.client.odb_get(f'{self.odb_settings_dir}/Enabled'):
-            self.log(f'started')
-            self.check_status()
-            self.run()
-            self.client.odb_set(f'{self.odb_settings_dir}/Enabled', False)
-            self.run_state = None
-            self.log(f'completed')
+        pass
 
     def run(self):
         """Run the script. Implement here the actions to take"""
@@ -251,6 +247,26 @@ class CryoScript(midas.frontend.EquipmentBase):
             self.devices = EpicsDeviceCollection(self.log,
                                                 timeout=self.timeout,
                                                 dry_run=self.dry_run)
+
+        # start run
+        elif 'Enabled' in path and new_value:
+
+            self.log(f'started')
+            self.client.odb_set(f'{self.odb_settings_dir}/_exit_with_error', False)
+            try:
+                self.check_status()
+                self.run()
+            except Exception as err:
+                self.log('Exiting with error!')
+                self.client.odb_set(f'{self.odb_settings_dir}/_exit_with_error', True)
+
+            else:
+                self.run_state = None
+                self.log('completed')
+
+            finally:
+                self.exit()
+                self.client.odb_set(f'{self.odb_settings_dir}/Enabled', False)
 
     def wait(self, condition, printfn=None):
         """Pause execution until condition evaluates to True or Enabled is False
