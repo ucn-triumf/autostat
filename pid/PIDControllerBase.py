@@ -88,11 +88,6 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         # You MUST call midas.frontend.EquipmentBase.__init__ in your equipment's __init__ method!
         midas.frontend.EquipmentBase.__init__(self, client, equip_name, default_common, self.DEFAULT_SETTINGS)
 
-        # Setup callback on ODB keys
-        self.client.odb_watch(self.odb_settings_dir,
-                              self.callback_main,
-                              pass_changed_value_only=True)
-
         # get epics readback variables to read and write
         # by default uses the monitor backend (desired)
         self.pv = {key: epics.PV(val) for key, val in self.EPICS_PV.items()}
@@ -110,13 +105,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         if self.is_enabled:
             self.disable()
 
-    def callback_main(self, client, path, idx, odb_value):
-        """Main callback that actually gets set. Depending on the changed value, update internal variables
-
-        Note that only 256 callbacks are permitted according to MAX_OPEN_RECORDS which is checked during db_add_open_record()
-        See:  https://daq00.triumf.ca/~daqweb/doc/midas-develop/html/group__odbfunctionc.html#gae77a045264f3933cdff85f35a3407f86
-        also: https://daq00.triumf.ca/~daqweb/doc/midas-develop/html/group__odbfunctionc.html#ga972fa15324a309897f832e5dd47755b9
-        """
+    def detailed_settings_changed_func(self, path, idx, odb_value):
 
         # choose callback operation
         if '/Enabled' in path:
@@ -135,69 +124,69 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
                                 f'time_step_s={self.time_step_s}',
                                 f'inverted={self.inverted == -1}',
                                 ]
-                client.msg(f'{self.name} has been enabled with settings: '+', '.join(settings_list))
+                self.client.msg(f'{self.name} has been enabled with settings: '+', '.join(settings_list))
             else:
                 self.set_status("Ready, Disabled", status_color='yellowGreenLight')
                 self.last_setpoint = np.nan
-                client.msg(f'{self.name} has been disabled')
+                self.client.msg(f'{self.name} has been disabled')
 
         elif '/P' == path[-2:]:
             self.pid.Kp = odb_value*self.inverted
-            client.msg(f'{self.name} P value changed to {self.pid.Kp}')
+            self.client.msg(f'{self.name} P value changed to {self.pid.Kp}')
 
         elif '/I' == path[-2:]:
             self.pid.Ki = odb_value*self.inverted
-            client.msg(f'{self.name} I value changed to {self.pid.Ki}')
+            self.client.msg(f'{self.name} I value changed to {self.pid.Ki}')
 
         elif '/D' == path[-2:]:
             self.pid.Kd = odb_value*self.inverted
-            client.msg(f'{self.name} D value changed to {self.pid.Kd}')
+            self.client.msg(f'{self.name} D value changed to {self.pid.Kd}')
 
         elif '/target_setpoint' in path:
             self.pid.setpoint = self.limit_var('target_setpoint', odb_value)
-            client.msg(f'{self.name} setpoint changed to {self.pid.setpoint}')
+            self.client.msg(f'{self.name} setpoint changed to {self.pid.setpoint}')
 
         elif '/output_limit_low' in path:
             val0 = self.limit_var('output_limit_low', odb_value)
-            val1 = client.odb_get(self.odb_settings_dir+'/output_limit_high')
+            val1 = self.client.odb_get(self.odb_settings_dir+'/output_limit_high')
             self.pid.output_limits = (val0, val1)
-            client.msg(f'{self.name} output limits changed to {self.pid.output_limits}')
+            self.client.msg(f'{self.name} output limits changed to {self.pid.output_limits}')
 
         elif '/output_limit_high' in path:
-            val0 = client.odb_get(self.odb_settings_dir+'/output_limit_low')
+            val0 = self.client.odb_get(self.odb_settings_dir+'/output_limit_low')
             val1 = self.limit_var('output_limit_high', odb_value)
             self.pid.output_limits = (val0, val1)
-            client.msg(f'{self.name} output limits changed to {self.pid.output_limits}')
+            self.client.msg(f'{self.name} output limits changed to {self.pid.output_limits}')
 
         elif '/time_step_s' in path:
             self.time_step_s = self.limit_var('time_step_s', odb_value)
-            client.msg(f'{self.name} time step changed to {self.time_step_s}')
+            self.client.msg(f'{self.name} time step changed to {self.time_step_s}')
 
         elif '/inverted_output' in path:
             self.inverted = -1.0 if odb_value else 1.0
-            client.msg(f'{self.name} inverted output state changed to {self.inverted}')
+            self.client.msg(f'{self.name} inverted output state changed to {self.inverted}')
 
         elif '/target_timeout_s' in path:
             self.target_timeout_s = odb_value
-            client.msg(f'{self.name} target timeout changed to {self.target_timeout_s} seconds')
+            self.client.msg(f'{self.name} target timeout changed to {self.target_timeout_s} seconds')
 
         elif '/control_pv' in path:
-            if client.odb_get(self.odb_settings_dir + '/control_pv') != self.EPICS_PV['ctrl']:
-                client.odb_set(self.odb_settings_dir + '/control_pv', self.EPICS_PV['ctrl'])
-                client.msg(f'{self.name} control_pv is read-only')
+            if self.client.odb_get(self.odb_settings_dir + '/control_pv') != self.EPICS_PV['ctrl']:
+                self.client.odb_set(self.odb_settings_dir + '/control_pv', self.EPICS_PV['ctrl'])
+                self.client.msg(f'{self.name} control_pv is read-only')
 
         elif '/target_pv' in path:
-            if client.odb_get(self.odb_settings_dir + '/target_pv') != self.EPICS_PV['target']:
-                client.odb_set(self.odb_settings_dir + '/target_pv', self.EPICS_PV['target'])
-                client.msg(f'{self.name} target_pv is read-only')
+            if self.client.odb_get(self.odb_settings_dir + '/target_pv') != self.EPICS_PV['target']:
+                self.client.odb_set(self.odb_settings_dir + '/target_pv', self.EPICS_PV['target'])
+                self.client.msg(f'{self.name} target_pv is read-only')
 
         elif '/proportional_on_measurement' in path:
             self.pid.proportional_on_measurement = odb_value
-            client.msg(f'{self.name} proportional_on_measurement changed to {self.pid.proportional_on_measurement}')
+            self.client.msg(f'{self.name} proportional_on_measurement changed to {self.pid.proportional_on_measurement}')
 
         elif '/differential_on_measurement' in path:
             self.pid.differential_on_measurement = odb_value
-            client.msg(f'{self.name} differential_on_measurement changed to {self.pid.differential_on_measurement}')
+            self.client.msg(f'{self.name} differential_on_measurement changed to {self.pid.differential_on_measurement}')
 
     def check_device_states(self, alarm=True):
         """Check devices are set properly
@@ -462,7 +451,7 @@ class PIDControllerBase_ZeroOnDisable_Panic(PIDControllerBase_ZeroOnDisable):
         # check that all devices are withing operating limits
         # exceptions to be made if in panic state
         if not self.panic_state and not self.check_device_states():
-            self.ensure_set('ctrl', 0.0)
+            self.pv['ctrl'].put(0.0)
             self.last_setpoint = np.nan
             return
 
@@ -503,7 +492,7 @@ class PIDControllerBase_ZeroOnDisable_Panic(PIDControllerBase_ZeroOnDisable):
                 self.last_output = self.pv['ctrl'].get()
 
                 # set the panic state stop the control variable
-                self.ensure_set('ctrl', 0.0)
+                self.pv['ctrl'].put(0.0)
                 self.last_setpoint = np.nan
                 self.t_panic = time.time()
                 self.panic_state = True
