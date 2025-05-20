@@ -70,7 +70,9 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
 
         # get parameters and their values, make parameter string
         parstr = []
-        for parname in self.client.odb_get(f'{path}/_parnames'):
+        parnames = self.client.odb_get(f'{path}/_parnames')
+        parnames = [parnames] if isinstance(parnames, str) else parnames
+        for parname in parnames:
             val = self.client.odb_get(f'{path}/{parname}')
             parstr.append(f'{parname}:{val}')
         parstr = ','.join(parstr)

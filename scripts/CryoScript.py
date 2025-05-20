@@ -4,15 +4,12 @@
 
 import midas, midas.client
 from EpicsDevice import EpicsDeviceCollection
-import time, logging
-from logging.handlers import RotatingFileHandler
+import time
 
 import midas
 import midas.frontend
-import epics
-from simple_pid import PID
-import time
 import collections
+import traceback
 import numpy as np
 
 class CryoScript(midas.frontend.EquipmentBase):
@@ -44,10 +41,10 @@ class CryoScript(midas.frontend.EquipmentBase):
 
     # default settings
     DEFAULT_SETTINGS = collections.OrderedDict([
-        ("timeout_s", 10),
-        ('dry_run', False),
-        ('wait_print_delay_s', 900),
         ("Enabled", False),
+        ('dry_run', False),
+        ("timeout_s", 10),
+        ('wait_print_delay_s', 900),
         ("_exit_with_error", False),    # if true, script exited unexpectedly
     ])
 
@@ -69,6 +66,7 @@ class CryoScript(midas.frontend.EquipmentBase):
         self.devices = EpicsDeviceCollection(self.log,
                                             timeout=self.timeout,
                                             dry_run=self.dry_run)
+        self.run_state = None
 
     def check_status(self):
         """Verify that the state of the system is as expected"""
@@ -141,16 +139,16 @@ class CryoScript(midas.frontend.EquipmentBase):
     def timeout(self):      return self.settings['timeout_s']
 
     def exit(self):
-        """Put the system into a safe state upon error or exit
+        """Put the system into a safe state upon error
 
         make use of the self.run_state variable to choose between exit strategies
+
+        Upon clean exit, self.run_state = None by default, and this code will not execute.
 
         Args:
             state: define system state to select between different exit strategies
         """
-
-        # must have the following to ensure that the sequencer knows to start the next script in the queue
-        self.client.odb_set('/Equipment/CryoScriptSequencer/Settings/_script_is_running', False)
+        pass
 
     def get_odb(self, path):
         return self.client.odb_get(path)
@@ -195,7 +193,10 @@ class CryoScript(midas.frontend.EquipmentBase):
         pass
 
     def run(self):
-        """Run the script. Implement here the actions to take"""
+        """Run the script. Implement here the actions to take
+
+        This must take no inputs, instead access ODB parameters
+        """
         pass
 
     def set_odb(self, path, value):
@@ -253,20 +254,33 @@ class CryoScript(midas.frontend.EquipmentBase):
 
             self.log(f'started')
             self.client.odb_set(f'{self.odb_settings_dir}/_exit_with_error', False)
+
+            # run very safely
             try:
                 self.check_status()
                 self.run()
+
+            # if error, log then exit cleanly
             except Exception as err:
-                self.log('Exiting with error!')
+                self.log(f'Exiting with error: {str(err)}')
+                self.log(f'{traceback.format_exc()}')
                 self.client.odb_set(f'{self.odb_settings_dir}/_exit_with_error', True)
 
+            # if no exceptions raised
             else:
                 self.run_state = None
                 self.log('completed')
 
+            # ensure clean exit regardless of crash
             finally:
-                self.exit()
+
+                # only exit if runstate not none
+                if self.run_state is not None:
+                    self.exit()
                 self.client.odb_set(f'{self.odb_settings_dir}/Enabled', False)
+
+                # let the sequencer know to start the next script in the queue
+                self.client.odb_set('/Equipment/CryoScriptSequencer/Settings/_script_is_running', False)
 
     def wait(self, condition, printfn=None):
         """Pause execution until condition evaluates to True or Enabled is False

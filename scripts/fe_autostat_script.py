@@ -42,14 +42,14 @@ class MyFrontend(midas.frontend.FrontendBase):
         # from he_purifier
         self.add_equipment(CryoScriptSequencer.CryoScriptSequencer(self.client))
         self.add_equipment(he_purifier.CryoScriptTester(self.client, logger))
-        # self.add_equipment(he_purifier.StartCooling(self.client, logger))
-        # self.add_equipment(he_purifier.StopCooling(self.client, logger))
+        self.add_equipment(he_purifier.StartCooling(self.client, logger))
+        self.add_equipment(he_purifier.StopCooling(self.client, logger))
         # self.add_equipment(he_purifier.StartCirculation(self.client, logger))
-        # self.add_equipment(he_purifier.StopCirculation(self.client, logger))
-        # self.add_equipment(he_purifier.StartRecovery(self.client, logger))
-        # self.add_equipment(he_purifier.StopRecovery(self.client, logger))
-        # self.add_equipment(he_purifier.StartRegeneration(self.client, logger))
-        # self.add_equipment(he_purifier.StopRegeneration(self.client, logger))
+        self.add_equipment(he_purifier.StopCirculation(self.client, logger))
+        self.add_equipment(he_purifier.StartRecovery(self.client, logger))
+        self.add_equipment(he_purifier.StopRecovery(self.client, logger))
+        self.add_equipment(he_purifier.StartRegeneration(self.client, logger))
+        self.add_equipment(he_purifier.StopRegeneration(self.client, logger))
 
 
         self.client.msg("AutoStat Scripting frontend initialized.")
@@ -75,8 +75,8 @@ class MyFrontend(midas.frontend.FrontendBase):
         """
 
         # clean exit from each equipment
-        for equip in self.equipment.values():
-            equip.exit()
+        # for equip in self.equipment.values():
+        #     equip.exit()
 
         self.client.msg("AutoStat Scripting frontend stopped.")
 

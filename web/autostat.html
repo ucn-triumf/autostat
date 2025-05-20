@@ -47,6 +47,34 @@
 
 
             // SCRIPTS ------------------------------------------------------
+            set_script_table_section("He Purifier",
+                [["StopCirculation", `Wait until MFC001 integrated volume >
+                    <span name="modbvalue" data-odb-path="/Equipment/StopCirculation/Settings/MFC001_SL" data-odb-editable="1"></span> SL,
+                    ignoring rates <
+                    <span name="modbvalue" data-odb-path="/Equipment/StopCirculation/Settings/MFC001_bkgd_SLPM" data-odb-editable="1"></span> SL/min.
+                    Watch for overpressure and clogging.`],
+                 ["StartRecovery", `Close circulation path and set heater PID =
+                    <span name="modbvalue" data-odb-path="/Equipment/StartRecovery/Settings/temperature_K" data-odb-editable="1"></span> K. `],
+                 ["StopRecovery", `When PT004 and PT005 are both <
+                    <span name="modbvalue" data-odb-path="/Equipment/StopRecovery/Settings/press_thresh_mbar" data-odb-editable="1"></span> mbar, turn off BP001 and close AV024 and AV025`],
+                 ["StartRegeneration", `CPs off, BP002 on, then wait until CG003 ≤
+                    <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/cg003_thresh" data-odb-editable="1"></span> mbar.
+                    Turn off MPs and close recovery path. Open AV050 and AV051, set heater PID setpoints to
+                    <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/temperature_K" data-odb-editable="1"></span> K.
+                    Wait until T >
+                    <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/temperature_K" data-odb-editable="0" data-formula="x/2"></span> K
+                    and FM208 > <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/fm208_thresh_slpm" data-odb-editable="0"></span> SL/min`],
+                 ["StopRegeneration", `Wait until all four TS >
+                     <span name="modbvalue" data-odb-path="/Equipment/StopRegeneration/Settings/temperature_thresh_K" data-odb-editable="1"></span> K,
+                     and FM208 <
+                     <span name="modbvalue" data-odb-path="/Equipment/StopRegeneration/Settings/fm208_thresh_slpm" data-odb-editable="1"></span> SLPM, then close AV050, AV051, turn off BP001`],
+                 ["StartCooling", `CPs on, and heater PID setpoints =
+                    <span name="modbvalue" data-odb-path="/Equipment/StartCooling/Settings/temperature_K" data-odb-editable="1"></span> K`],
+                 ["StopCooling", `Pause until T <
+                     <span name="modbvalue" data-odb-path="/Equipment/StopCooling/Settings/temperature_K" data-odb-editable="1"></span> K`],
+                ]);
+
+
             set_script_table_section("Test",
                 [["CryoScriptTester", 'This test has parameter temperature of <span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/temperature_K" data-odb-editable="1"></span> K'],
                 ["CryoScriptTester", 'A second line, now with a string "<span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/test2" data-odb-editable="1"></span>" and a number: <span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/test" data-odb-editable="1"></span>']]);
@@ -251,7 +279,7 @@
 
             // make header
             row = table.insertRow();
-            let columns = ["Script Name", "Inputs", "Queue"];
+            let columns = ["Script Name", "Inputs and Current Values", "Queue"];
             let width = ["200px", "500px", "70px"];
             let colspan = [2,1,2];
 
@@ -330,8 +358,11 @@
             table_old.parentNode.replaceChild(table, table_old)
 
             // get queue size
-            mjsonrpc_db_get_values(['/Equipment/CryoScriptSequencer/Settings/_queue_length']).then(function(rpc) {
+            mjsonrpc_db_get_values(['/Equipment/CryoScriptSequencer/Settings/_queue_length',
+                                    '/Equipment/CryoScriptSequencer/Settings/_functions'
+            ]).then(function(rpc) {
                 let queue_len = rpc.result.data[0];
+                let names = rpc.result.data[1];
 
                 // queue
                 for(let i=0; i<queue_len; i++){
@@ -345,7 +376,7 @@
 
                     // script name
                     cell = row.insertCell();
-                    cell.innerHTML = `<div class="modbvalue" data-odb-editable="1" data-odb-path = "/Equipment/CryoScriptSequencer/Settings/_functions[${i}]"></div>`;
+                    cell.innerHTML = `<a href="/Equipment/${names[i]}/Settings">${names[i]}</div></a>`;
 
                     // inputs
                     cell = row.insertCell();
