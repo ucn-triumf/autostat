@@ -113,6 +113,9 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
                 self.set_status("Running", status_color='greenLight')
                 self.reset_pid()
 
+                # reset readback timeout time
+                self.t_target_last = time.time()
+
                 settings_list = [f'P={self.pid.Kp}',
                                 f'I={self.pid.Ki}',
                                 f'D={self.pid.Kd}',
@@ -323,14 +326,14 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         # new control value
         if t1-self.t0 >= self.time_step_s:
 
-            # apply control operation
+            # apply control operation if setpoint has changed
             val = self.pid(target_val)
-            self.pv['ctrl'].put(val)
-            self.t0 = t1
+            if self.last_setpoint != val:
+                self.pv['ctrl'].put(val)
+                self.last_setpoint = val
 
             # new t0 and htr setpoint value to check against
             self.t0 = t1
-            self.last_setpoint = val
 
     def reset_pid(self):
         """Reset PID internal values and reset parameters according to ODB values"""
