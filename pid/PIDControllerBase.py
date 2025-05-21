@@ -440,14 +440,14 @@ class PIDControllerBase_ZeroOnDisable_Panic(PIDControllerBase_ZeroOnDisable):
         self.panic_state = False
         self.t_panic = 0 # time at which we have panicked and opened safety valve
 
-    def callback_main(self, client, path, idx, odb_value):
+    def detailed_settings_changed_func(self, path, idx, odb_value):
         """Add callback for target high threshold"""
 
         if '/target_high_thresh' in path:
             self.panic_thresh = self.limit_var('target_high_thresh', odb_value)
-            client.msg(f'{self.name} target high threshold changed to {self.panic_thresh}')
+            self.client.msg(f'{self.name} target high threshold changed to {self.panic_thresh}')
         else:
-            super().callback_main(client, path, idx, odb_value)
+            super().detailed_settings_changed_func(client, path, idx, odb_value)
 
     def readout_func(self):
         """
@@ -508,7 +508,7 @@ class PIDControllerBase_ZeroOnDisable_Panic(PIDControllerBase_ZeroOnDisable):
                 self.last_setpoint = np.nan
                 self.t_panic = time.time()
                 self.panic_state = True
-                self.client.msg(f'{self.name}: Target over threshold. Stopping control and setting {self.EPICS_PV["ctrl"]} to zero')
+                self.client.msg(f'{self.name}: Target over threshold ({self.panic_thresh}). Stopping control and setting {self.EPICS_PV["ctrl"]} to zero')
 
         # panicking: wait at least 30 s for the pressure to go down
         elif self.panic_state and (t1 - self.t_panic) > 30:
