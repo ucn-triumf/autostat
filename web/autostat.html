@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html class="mcss">
+<!-- NEED MOVE UP/DOWN BUTTONS -->
 <head>
     <meta charset="UTF-8">
     <link rel="stylesheet" href="midas.css">
@@ -7,19 +8,19 @@
     <script src="jquery.min.js"></script>
     <script src="midas.js"></script>
     <script src="mhttpd.js"></script>
+
     <style>
         table {
             float: left;
             width: 50%;
-        }
-        button {
-            width: 90%;
         }
     </style>
     <title>AutoStat</title>
     <script>
         function setup(){
             // set table rows and sections
+
+            // PID ---------------------------------------------------------
 
             // fpvs
             set_pid_table_section("FPVs",
@@ -40,59 +41,179 @@
             // notes and title changes
             // please leave the following line as an example of how to do this
             // document.getElementById("PID_HTR008_title").innerHTML = "PID_HTR008 (not working, unsure why)";
+
+
+            // SCRIPTS ------------------------------------------------------
+            set_script_table_section("He Purifier",
+                [["StopCirculation", `Wait until MFC001 integrated volume >
+                    <span name="modbvalue" data-odb-path="/Equipment/StopCirculation/Settings/MFC001_SL" data-odb-editable="1"></span> SL,
+                    ignoring rates <
+                    <span name="modbvalue" data-odb-path="/Equipment/StopCirculation/Settings/MFC001_bkgd_SLPM" data-odb-editable="1"></span> SL/min.
+                    Watch for overpressure and clogging.`],
+                 ["StartRecovery", `Close circulation path and set heater PID =
+                    <span name="modbvalue" data-odb-path="/Equipment/StartRecovery/Settings/temperature_K" data-odb-editable="1"></span> K. `],
+                 ["StopRecovery", `When PT004 and PT005 are both <
+                    <span name="modbvalue" data-odb-path="/Equipment/StopRecovery/Settings/press_thresh_mbar" data-odb-editable="1"></span> mbar, turn off BP001 and close AV024 and AV025`],
+                 ["StartRegeneration", `CPs off, BP002 on, then wait until CG003 ≤
+                    <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/cg003_thresh" data-odb-editable="1"></span> mbar.
+                    Turn off MPs and close recovery path. Open AV050 and AV051, set heater PID setpoints to
+                    <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/temperature_K" data-odb-editable="1"></span> K.
+                    Wait until T >
+                    <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/temperature_K" data-odb-editable="0" data-formula="x/2"></span> K
+                    and FM208 > <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/fm208_thresh_slpm" data-odb-editable="1"></span> SL/min`],
+                 ["StopRegeneration", `Wait until all four TS >
+                     <span name="modbvalue" data-odb-path="/Equipment/StopRegeneration/Settings/temperature_thresh_K" data-odb-editable="1"></span> K,
+                     and FM208 <
+                     <span name="modbvalue" data-odb-path="/Equipment/StopRegeneration/Settings/fm208_thresh_slpm" data-odb-editable="1"></span> SLPM, then close AV050, AV051, turn off BP001`],
+                 ["StartCooling", `CPs on, and heater PID setpoints =
+                    <span name="modbvalue" data-odb-path="/Equipment/StartCooling/Settings/temperature_K" data-odb-editable="1"></span> K`],
+                 ["StopCooling", `Pause until T <
+                     <span name="modbvalue" data-odb-path="/Equipment/StopCooling/Settings/temperature_K" data-odb-editable="1"></span> K`],
+                ]);
+
+
+            set_script_table_section("Test",
+                [["CryoScriptTester", 'This test has parameter temperature of <span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/temperature_K" data-odb-editable="1"></span> K'],
+                ["CryoScriptTester", 'A second line, now with a string "<span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/test2" data-odb-editable="1"></span>" and a number: <span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/test" data-odb-editable="1"></span>']]);
+
+            setup_script_queue();
         }
 
         var gStatusInflight = false;
-        function update_pid_runstate(){
+        function update_runstate(){
 
             // don't make another request if the last request is still outstanding.
             if(gStatusInflight) return;
             gStatusInflight = true;
 
-            mjsonrpc_send_request([
-                    mjsonrpc_make_request("cm_exist",{"name":"fe_autostat_pid"}),
-                ]).then(function (rpc) {
+            // setup jobs
+            let req = new Array;
 
-                    // get all checkboxes
-                    let checkboxes = document.getElementsByClassName("AutoEnable");
+            req.push(mjsonrpc_make_request("cm_exist", {"name":"fe_autostat_pid"}));
+            req.push(mjsonrpc_make_request("cm_exist",{"name":"fe_autostat_script"}));
+            req.push(mjsonrpc_make_request("db_get_values",
+                {"paths":["/Equipment/CryoScriptSequencer/Settings/Enabled",
+                          "/Equipment/CryoScriptSequencer/Settings/_functions",
+                          "/Equipment/CryoScriptSequencer/Settings/_current",
+                          "/Equipment/CryoScriptSequencer/Settings/_queue_length",
+                ]}));
 
-                    // Check the status of the autostat frontend
-                    var prog_exist = rpc[0].result.status;
+            // make batch request
+            mjsonrpc_send_request(req).then(function(rpc){
 
-                    // fe running
-                    if(prog_exist == 1){
+                // get req outputs
+                let pid_exists = rpc[0].result.status;
+                let script_exists = rpc[1].result.status;
+                let seq_enabled = rpc[2].result.data[0];
+                let seq_fnlist = rpc[2].result.data[1];
+                let seq_idx = rpc[2].result.data[2];
+                let seq_queuelen = rpc[2].result.data[3];
 
-                        // set banner
-                        document.getElementById('updateStatus').innerHTML = "fe_autostat_pid program is running";
-                        document.getElementById('updateStatus').style.background = "#65f7ae";
+                // PID program is running ------------------------------
 
-                        // enable all checkboxes
-                        for(let i=0; i<checkboxes.length; i++){
-                            checkboxes[i].disabled = false;
-                        }
+                // Check the status of the pid frontend
+                let checkboxes = document.getElementsByClassName("AutoEnable");
 
-                    // fe not running
-                    }else{
+                // fe running
+                if(pid_exists == 1){
 
-                        // set banner
-                        document.getElementById('updateStatus').innerHTML = "fe_autostat_pid program NOT running";
-                        document.getElementById('updateStatus').style.background = "#f58282";
+                    // set banner
+                    document.getElementById('updateStatus').innerHTML = "fe_autostat_pid program is running";
+                    document.getElementById('updateStatus').style.background = "#65f7ae";
 
-                        // disable all checkboxes
-                        for(let i=0; i<checkboxes.length; i++){
-                            checkboxes[i].disabled = true;
-                        }
+                    // enable all checkboxes
+                    for(let i=0; i<checkboxes.length; i++){
+                        checkboxes[i].disabled = false;
                     }
 
-                    gStatusInflight = false; // finished async routine
-                }).catch(function(error) {
-                    if (error.request) {
-                        var s = mjsonrpc_decode_error(error);
-                        console.log("mjsonrpc_error_alert: " + s);
+                // fe not running
+                }else{
+
+                    // set banner
+                    document.getElementById('updateStatus').innerHTML = "fe_autostat_pid program is NOT running";
+                    document.getElementById('updateStatus').style.background = "#f58282";
+
+                    // disable all checkboxes
+                    for(let i=0; i<checkboxes.length; i++){
+                        checkboxes[i].disabled = true;
+                    }
+                }
+
+                // SCRIPTS program is running -------------------------
+
+                let inputs = document.getElementsByClassName("ScriptInput");
+
+                // fe running
+                if(script_exists == 1){
+                    // set banner
+                    document.getElementById('script_running').innerHTML = "fe_autostat_script program is running";
+                    document.getElementById('script_running').style.background = "#65f7ae";
+
+                    // enable all inputs
+                    for(let i=0; i<inputs.length; i++){
+                        inputs[i].disabled = false;
+                    }
+
+                // fe not running
+                }else{
+                    // set banner
+                    document.getElementById('script_running').innerHTML = "fe_autostat_script program is NOT running";
+                    document.getElementById('script_running').style.background = "#f58282";
+
+                    // disable all inputs
+                    for(let i=0; i<inputs.length; i++){
+                        inputs[i].disabled = true;
+                    }
+
+                    // disable sequencer
+                    seq_enabled = false;
+                    mjsonrpc_db_paste(['/Equipment/CryoScriptSequencer/Settings/Enabled'], [false]);
+                }
+
+                // SEQUENCER is enabled or not -------------------------------
+                if(seq_enabled){
+                    // set color of banner
+                    document.getElementById('queue_header').style.background = "#65f7ae";
+                    document.getElementById('queue_header').style.color = "#000000";
+
+                    // set start button text
+                    document.getElementById("startscript").innerHTML = 'Stop';
+                    let attr = document.getElementById("startscript").attributes.getNamedItem('data-odb-value');
+                    attr.nodeValue = false;
+                    document.getElementById("startscript").attributes.setNamedItem(attr);
+
+                } else {
+                    // set color of banner
+                    document.getElementById('queue_header').style.background = "#f58282";
+                    document.getElementById('queue_header').style.color = "#ffffff";
+
+                    // set start button text
+                    document.getElementById("startscript").innerHTML = 'Start';
+                    let attr = document.getElementById("startscript").attributes.getNamedItem('data-odb-value');
+                    attr.nodeValue = true;
+                    document.getElementById("startscript").attributes.setNamedItem(attr);
+                }
+
+                // HIGHLIGHT CURRENTLY RUNNING -------------------------------
+                for(let i=0; i<seq_queuelen; i++){
+                    if(i === seq_idx && seq_enabled){
+                        document.getElementById(`queue_row${i}`).style.background = "#ffffb3";
+                        document.getElementById(`script_row_${seq_fnlist[i]}`).style.background = "#ffffb3";
                     } else {
-                        console.log("mjsonroc_error_alert: " + error);
+                        document.getElementById(`queue_row${i}`).style.background = "";
+                        document.getElementById(`script_row_${seq_fnlist[i]}`).style.background = "";
                     }
-                });
+                }
+
+                gStatusInflight = false; // finished async routine
+            }).catch(function(error) {
+                if (error.request) {
+                    var s = mjsonrpc_decode_error(error);
+                    console.log("mjsonrpc_error_alert: " + s);
+                } else {
+                    console.log("mjsonroc_error_alert: " + error);
+                }
+            });
         }
 
         function set_pid_table_section(section, equipments){
@@ -133,10 +254,227 @@
                 row.insertCell().outerHTML = `<td style="text-align: center;"><input class="AutoEnable" type="checkbox" name="modbcheckbox" data-odb-path="/Equipment/${equip}/Settings/Enabled"></input></td>`;
             }
         }
+
+        function set_script_table_section(section, equipments){
+            /*
+                Fill in table rows.
+
+                section: string, title of the section
+                equipments: array of equipment names to populate with
+            */
+
+            const table = document.getElementById("scripts_body");
+
+            // make section
+            let row = table.insertRow();
+            let cell = row.insertCell();
+            cell.outerHTML = `<th colspan="5" class="mtableheader">${section}</th>`;
+
+            // make header
+            row = table.insertRow();
+            let columns = ["Script Name", "Inputs and Current Setpoints", "Queue"];
+            let width = ["200px", "500px", "70px"];
+            let colspan = [2,1,2];
+
+            for(let i=0; i<columns.length; i++){
+                let cell = row.insertCell();
+                cell.innerHTML = `<b>${columns[i]}</b>`;
+                cell.style = `width: ${width[i]}; text-align: center;`;
+                cell.colSpan = colspan[i];
+            }
+
+            // make cells
+            for(let i=0; i<equipments.length; i++){
+                row = table.insertRow();
+                let equip = equipments[i][0];
+                let desc = equipments[i][1];
+
+                // row id
+                row.id = `script_row_${equip}`;
+
+                let cell = row.insertCell();
+                cell.innerHTML = `<a href="/Equipment/${equip}/Settings"><div id=${equip}_title>${equip}</div></a>`;
+                cell.colSpan = 2;
+
+                row.insertCell().innerHTML = desc;
+                row.insertCell().outerHTML = `<td align="center" colspan="5"><button class="ScriptInput" id="add_${equip}" style="width: 90%" onclick="queue_edit('add', '${equip}')">Add</button></td>`;
+            }
+        }
+
+        function setup_script_queue(){
+            const table = document.getElementById("scripts_body");
+
+            // make section
+            let row = table.insertRow();
+            let cell = row.insertCell();
+            cell.outerHTML = `<th colspan="5" class="mtableheader" id="queue_header">Queue</th>`;
+
+            // header and buttons
+            row = table.insertRow();
+            cell = row.insertCell();
+
+            cell.outerHTML = `<td align="center" colspan="2";>
+                <button class="modbbutton mbutton"
+                        data-odb-path="/Equipment/CryoScriptSequencer/Settings/Enabled"
+                        data-odb-value="true"
+                        id="startscript"
+                        style="width: 90%"
+                        onclick="update_runstate()">Start</button>
+                </td>`;
+            cell = row.insertCell();
+            cell.innerHTML = 'At end, run queue <span name="modbvalue" data-odb-path="/Equipment/CryoScriptSequencer/Settings/_nloops" data-odb-editable="1"></span> more times<br>On start, run queue from index <span name="modbvalue" data-odb-path="/Equipment/CryoScriptSequencer/Settings/_current" data-odb-editable="1"></span>';
+            cell = row.insertCell();
+            cell.outerHTML = `<td align="center" colspan="5" >
+                <button class="ScriptInput"
+                        id="clearscript"
+                        style="width: 90%"
+                        onclick="queue_edit('clear', '')">Clear All</button>
+                </td>`;
+
+            // more headers
+            row = table.insertRow();
+            let columns = ["Script Name", "Inputs at Script Start", "Queue"];
+            let colspan = [2,1,2];
+            for(let i=0; i<columns.length; i++){
+                cell = row.insertCell();
+                cell.innerHTML = `<b>${columns[i]}</b>`;
+                cell.style = 'text-align: center;';
+                cell.colSpan = colspan[i];
+            }
+
+            gen_script_queue();
+        }
+
+        function gen_script_queue(){
+
+            // clear the old table
+            var table_old = document.getElementById("queued_scripts");
+            var table = document.createElement('tbody');
+            table.id = "queued_scripts";
+            table_old.parentNode.replaceChild(table, table_old)
+
+            // get queue size
+            mjsonrpc_db_get_values(['/Equipment/CryoScriptSequencer/Settings/_queue_length',
+                                    '/Equipment/CryoScriptSequencer/Settings/_functions'
+            ]).then(function(rpc) {
+                let queue_len = rpc.result.data[0];
+                let names = rpc.result.data[1];
+
+                // queue
+                for(let i=0; i<queue_len; i++){
+                    row = table.insertRow();
+                    row.id = `queue_row${i}`;
+
+                    // script index
+                    cell = row.insertCell();
+                    cell.innerHTML = `${i}`;
+                    cell.align = 'center';
+
+                    // script name
+                    cell = row.insertCell();
+                    cell.innerHTML = `<a href="/Equipment/${names[i]}/Settings">${names[i]}</div></a>`;
+
+                    // inputs
+                    cell = row.insertCell();
+                    cell.innerHTML = `<div class="modbvalue" data-odb-editable="1" data-odb-path = "/Equipment/CryoScriptSequencer/Settings/_inputs[${i}]"></div>`;
+
+                    // up and down buttons
+                    cell = row.insertCell();
+                    cell.outerHTML = `<td align="center">
+                        <button class="ScriptInput"
+                                id="upscript${i}"
+                                style="height:20px"
+                                onclick="queue_edit('up', '${i}')">▲</button>
+                        <button class="ScriptInput"
+                                id="upscript${i}"
+                                style="height:20px"
+                                onclick="queue_edit('down', '${i}')">▼</button>
+                        </td>`;
+
+                    // remove button, up and down buttons
+                    cell = row.insertCell();
+                    cell.outerHTML = `<td align="center">
+                        <button class="ScriptInput"
+                                id="rmscript${i}"
+                                onclick="queue_edit('remove', '${i}')">×</button>
+                        </td>`;
+                }
+            }).catch(function(error) {
+                if (error.request) {
+                    let s = mjsonrpc_decode_error(error);
+                    console.log("mjsonrpc_error_alert: " + s);
+                } else {
+                    console.log("mjsonroc_error_alert: " + error);
+                }
+            });
+        }
+
+        // rpc communication with python sequencer ---------------------------
+
+        function alert_rpc_error(status, reply) {
+            // Give the user a nicer message if the error code is 103 (meaning that
+            // the requested client wasn't found). dlgAlert comes from controls.js.
+            if (status == 103) {
+                dlgAlert("The pytest client must be running for this functionality to work.");
+            } else {
+                dlgAlert("Failed to perform action on autostat page!<div style='text-align:left'><br>Status code: " + status + "<br>Message: " + reply + "</div>");
+            }
+        }
+
+        function parse_rpc_response(rpc_result) {
+            // Convert an RPC result into a status code and message string.
+            // In the python code we specify a flag that means the main
+            // rpc_result.status is always 1 if the python code ran, and the
+            // "real" status code is embedded in the reply string.
+            //
+            // See the notes in midas.client.MidasClient.register_jrpc_callback()
+            // for the rationale.
+            let status = rpc_result.status;
+            let reply = "";
+
+            if (status == 1) {
+                // Only get a reply from mjsonrpc if status is 1
+                let parsed = JSON.parse(rpc_result.reply);
+                status = parsed["code"];
+                reply = parsed["msg"];
+            }
+
+            return [status, reply];
+        }
+
+        function queue_edit(mode, arg){
+            // add script to queue
+
+            let params = Object()
+
+            // The client we want to talk to. Note that it matches the name
+            // in the python code when we call the MidasClient constructor.
+            params.client_name = "fe_autostat_script";
+
+            // The command we want to run. The python code only has one
+            // function that gets called, but the command is provided as an
+            // argument to it (see rpc_handler() function).
+            params.cmd = mode;
+
+            // Arguments to pass. Must be a string.
+            params.args = arg;
+
+            mjsonrpc_call("jrpc", params).then(function(rpc) {
+                let [status, reply] = parse_rpc_response(rpc.result);
+                if (status == 1) {
+                    gen_script_queue();
+                } else {
+                    alert_rpc_error(status, reply);
+                }
+            }).catch(function(error) {
+                mjsonrpc_error_alert(`Autostat webpage error: ${error}`);
+            });
+        }
+
     </script>
 </head>
 
-<body class="mcss" onload="setup();mhttpd_init('AutoStat');setInterval(update_pid_runstate,3000);update_pid_runstate()">
+<body class="mcss" onload="setup();mhttpd_init('AutoStat');setInterval(update_runstate,100);update_runstate();">
 
     <!-- header and side navigation will be filled in mhttpd_start -->
     <div id="mheader"></div>
@@ -150,92 +488,34 @@
                     <tr style="height: 50px">
                         <th colspan="5" class="mtableheader"><h1>PID Control Loops</h1></th>
                     </tr>
-                    <tr>
-                        <td colspan="5" style="text-align: center"> <b><div id="updateStatus"></b></td>
-                    </tr>
+                    <tr><td colspan="5" style="text-align: center"> <b><div id="updateStatus"></b></td></tr>
                 </thead>
                 <tbody id="table_body"></tbody>
+                <tr>
+                    <th colspan="5" class="mtableheader">Notes</th>
+                </tr>
+                <tr>
+                    <td>Sensor Offsets</td>
+                    <td colspan="5">TS010 is 30-31 K offset from TS008
+                            <br>TS011 is 32-33 K offset from TS009
+                            <br>TS019 is 29-30 K offset from TS012
+                            <br>TS020 is 24-25 K offset from TS013
+                            <br>TS021 is 21-22 K offset from TS014
+                            <br>TS022 is 16-17 K offset from TS015
+                    </td>
+                </tr>
             </table>
 
             <!-- Scripts Table -->
             <table class="mtable">
                 <thead>
                     <tr style="height: 50px">
-                        <th colspan="5" class="mtableheader"><h1>Scripts [THIS TABLE UNDER DEVELOPMENT]</h1></th>
+                        <th colspan="5" class="mtableheader"><h1>Scripts</h1></th>
                     </tr>
-                    <tr>
-                        <td colspan="5" style="text-align: center"> <b><div id="currently_running"> </div></b></td>
-                    </tr>
+                    <tr><td colspan="5" style="text-align: center" id="script_running"></td></tr>
                 </thead>
-                <tbody id="scripts">
-                    <tr>
-                        <th colspan="5" class="mtableheader">He Purifier</th>
-                    </tr>
-                    <tr>
-                        <td align="center"><b>Script Name</b></td>
-                        <td align="center"><b>Inputs</b></td>
-                        <td align="center"><b>Queue</b></td>
-                    </tr>
-                    <tr>
-                        <td>StopRecovery</td>
-                        <td>
-                            <label>When PT004 and PT005 <
-                                <input type="number" step="0.01" size="2", value="3", id="StopRecovery_pt_thresh"> mbar
-                            </label>
-                        </td>
-                        <td align="center"><button id="add_StopRecovery">Add</button></td>
-                    </tr>
-                    <tr>
-                        <td>StartRegeneration</td>
-                        <td>
-                            <label>Set temperature =
-                                <input type="number" step="1" size="2", value="180", id="StartRegeneration_temperature"> K,
-                            </label>
-                            <label>then wait until PT208 >
-                                <input type="number" step="0.01" size="2", value="1", id="StartRegeneration_fm208_at_least"> SLM
-                            </label>
-                        </td>
-                        <td align="center"><button id="add_StartRegeneration">Add</button></td>
-                    </tr>
-                    <tr>
-                        <td>StopRegeneration</td>
-                        <td>
-                            <label>When temperatures = <input type="number" step="1" size="2", value="180", id="StopRegeneration_temperature"> K and PT208 <
-                                <input type="number" step="0.01" size="2", value="0.25", id="StopRegeneration_fm208_thresh"> SLM
-                            </label>
-                        </td>
-                        <td align="center"><button id="add_StopRegeneration">Add</button></td>
-                    </tr>
-                    <tr>
-                        <td>StartCooling</td>
-                        <td>
-                            <label>Set temperature =
-                                <input type="number" step="1" size="2", value="45", id="StartCooling_temperature"> K
-                            </label>
-                        </td>
-                        <td align="center"><button id="add_StartCooling">Add</button></td>
-                    </tr>
-                    <tr>
-                        <td>StopCooling</td>
-                        <td>
-                            <label>When temperature ==
-                                <input type="number" step="1" size="2", value="45", id="StopCooling_temperature"> K
-                            </label>
-                        </td>
-                        <td align="center"><button id="add_StopCooling">Add</button></td>
-                    </tr>
-
-
-                    <tr>
-                        <th colspan="5" class="mtableheader">
-                            Queued
-                        </th>
-                    </tr>
-                    <tr>
-                        <td colspan="5" align="center"><button id="runscript">Run Queued Scripts</button></td>
-                    </tr>
-
-                </tbody>
+                <tbody id="scripts_body"></tbody>
+                <tbody id="queued_scripts"></tbody>
             </table>
         </section>
     </div>

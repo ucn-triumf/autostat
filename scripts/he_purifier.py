@@ -1,10 +1,9 @@
-#!/usr/bin/python3
-# run with "nohup ./he_purifier.py &" to keep the code running in the background even if disconnected
-# Transition the He purifier from regeneration to cooling
+# He purifier runscripts
 # Derek Fujimoto
 # May 2025
 
 import time
+import collections
 from CryoScript import CryoScript
 from collections.abc import Iterable
 
@@ -18,7 +17,17 @@ class StartCooling(CryoScript):
                    'AV025', 'AV026', 'AV027', 'AV028', 'AV029', 'AV030', 'AV031',
                    'AV032', 'AV034', 'AV050', 'AV051']
 
-    def run(self, temperature):
+    # default settings
+    DEFAULT_SETTINGS = collections.OrderedDict([
+        ("Enabled", False),
+        ('dry_run', False),
+        ("timeout_s", 10),
+        ('wait_print_delay_s', 900),
+        ('temperature_K', 30),
+        ("_exit_with_error", False),    # if true, script exited unexpectedly
+        ("_parnames", ["temperature_K",]),
+    ])
+    def run(self):
 
         # turn on heaters and set setpoints to zero
         for htr in ['HTR010', 'HTR012', 'HTR105', 'HTR107']:
@@ -41,7 +50,7 @@ class StartCooling(CryoScript):
         # turn on autostat enable and change setpoints
         pids = ['PID_PUR_ISO70K', 'PID_PUR_ISO20K', 'PID_PUR_HE20K', 'PID_PUR_HE70K']
         for pid in pids:
-            self.set_odb(f'/Equipment/{pid}/Settings/target_setpoint', temperature)
+            self.set_odb(f'/Equipment/{pid}/Settings/target_setpoint', self.settings['temperature_K'])
             self.set_odb(f'/Equipment/{pid}/Settings/Enabled', True)
 
 class StopCooling(CryoScript):
@@ -54,6 +63,17 @@ class StopCooling(CryoScript):
                       'AV032', 'AV034', 'AV050', 'AV051']
     devices_off = ['BP001', 'BP002']
     devices_on = ['HTR010', 'HTR012', 'HTR105', 'HTR107']
+
+    # default settings
+    DEFAULT_SETTINGS = collections.OrderedDict([
+        ("Enabled", False),
+        ('dry_run', False),
+        ("timeout_s", 10),
+        ('wait_print_delay_s', 900),
+        ('temperature_K', 30),
+        ("_exit_with_error", False),    # if true, script exited unexpectedly
+        ("_parnames", ["temperature_K"]),
+    ])
 
     def check_status(self):
         super().check_status()
@@ -68,12 +88,12 @@ class StopCooling(CryoScript):
             elif self.dry_run:
                 self.log(f'{pid} is enabled')
 
-    def run(self, temperature):
+    def run(self):
 
         # check setpoints of PID autostat
         for pid in ['PID_PUR_ISO70K', 'PID_PUR_ISO20K', 'PID_PUR_HE20K', 'PID_PUR_HE70K']:
             setpoint = self.get_odb(f'/Equipment/{pid}/Settings/target_setpoint')
-            if setpoint != temperature:
+            if setpoint != self.settings['temperature_K']:
                 msg = f'{pid} setpoint ({setpoint:.1f}K) is not as it should be! Undefined system state, exiting.'
                 if self.dry_run:    self.log(msg)
                 else:               raise RuntimeError(msg)
@@ -81,9 +101,10 @@ class StopCooling(CryoScript):
                 self.log(f'{pid} setpoint is {setpoint:.1f}K')
 
         # wait for the temperature to drop
-        self.wait_until_lessthan('TS511', temperature+0.1)
-        self.wait_until_lessthan('TS513', temperature+0.1)
+        self.wait_until_lessthan('TS511', lambda : self.settings['temperature_K']+0.1)
+        self.wait_until_lessthan('TS513', lambda : self.settings['temperature_K']+0.1)
 
+# TODO: UPDATE / IMPLEMENT
 class StartCirculation(CryoScript):
     """Start the circulation of isopure"""
 
@@ -103,6 +124,7 @@ class StartCirculation(CryoScript):
     def run(self, mfc001_setpt=50):
 
         # disable AV020 auto control
+        # self.devices.AV020.disable_auto()
         # self.devices.AV020.disable_auto()
 
         # close MFC
@@ -193,6 +215,19 @@ class StopCirculation(CryoScript):
                   'HTR010', 'HTR012', 'HTR105', 'HTR107', ]
     devices_off = ['BP002']
 
+    # default settings
+    DEFAULT_SETTINGS = collections.OrderedDict([
+        ("Enabled", False),
+        ('dry_run', False),
+        ("timeout_s", 10),
+        ('wait_print_delay_s', 900), # duration in seconds between print statements of how much volume was flowed
+        ('MFC001_SL', 1000), # volume at which to stop circulation in SL
+        ('press_lim_duration_s', 180), # duration in seconds for how long pressure threshold exceeded before closing AV021 and AV020
+        ('MFC001_bkgd_SLPM', 0.5), # ignore mfc readback less than this value in SL/min (background)
+        ("_exit_with_error", False),    # if true, script exited unexpectedly
+        ("_parnames", ["MFC001_SL", "MFC001_bkgd_SLPM"]),
+    ])
+
     def exit(self):
         if self.run_state is None:
             return
@@ -205,20 +240,17 @@ class StopCirculation(CryoScript):
             self.devices.BP001.off()
             self.devices.AV014.close()
 
-    def run(self, volume_SL, pt_overtime_s=180, mfc_nonzero_thresh=0.5, print_dt=900):
-        """ Integrate flow through MFC001
-        Args:
-            volume_SL (float): volume at which to stop circulation in SL
-            pt_overtime_s (float): duration in seconds for how long pressure threshold exceeded before closing AV021 and AV020
-            mfc_nonzero_thresh (float): ignore mfc readback less than this value in SL/min (background)
-            print_df (float): duration in seconds between print statements of how much volume was flowed
-        """
+    def run(self):
+        """ Wait for integrated flow through MFC001 to exceed threshold"""
 
+        # device shortcuts
         MFC001 = self.devices.MFC001
         PT005 = self.devices.PT005
         AV020 = self.devices.AV020
         AV021 = self.devices.AV021
 
+        # inputs
+        volume_SL = self.settings['MFC001_SL']
         self.run_state = 'circulating'
 
         # calculate volume circuated from readback of MFC001, pause execution until exceeded
@@ -227,7 +259,7 @@ class StopCirculation(CryoScript):
         t0_print = time.time()
         t0_overpressure = time.time()
         last_updated = 0
-        while volume < volume_SL and volume_SL > 0:
+        while volume < self.settings['MFC001_SL'] and volume_SL > 0:
 
             # check for clogs - if true, end early
             if MFC001.setpoint > 30 and MFC001.readback < 5 and PT005.readback < 200 and not self.dry_run:
@@ -252,15 +284,14 @@ class StopCirculation(CryoScript):
 
             # check for overpressure too long, protect AV020 and AV021
             t1_overpressure = time.time()
-            if t1_overpressure-t0_overpressure > pt_overtime_s:
+            if t1_overpressure-t0_overpressure > self.settings['press_lim_duration_s']:
                 msg = f'PT009 or PT001 out of bounds for {t1_overpressure-t0_overpressure:.1f} seconds! Exiting after circulating {volume:.0f} SL'
                 self.log(msg, True)
                 self.exit()
                 raise RuntimeError(msg)
 
             # check overpressure before MFC001
-            if (self.devices.PT005.readback > 1200 or self.devices.MFC001.readback > self.devices.MFC001.setpoint) and self.devices.BP001.is_on:
-                self.log(f'Problem detected: PT005 pressure is {self.devices.PT005.readback} (should be less than 1200). Or MFC001 readback ({self.devices.MFC001.readback}) > setpoint (self.devices.MFC001.setpoint)')
+            if self.devices.PT005.readback > 1200 or self.devices.MFC001.readback > self.devices.MFC001.setpoint:
                 self.devices.BP001.off()
 
             # flow rate in SL/s
@@ -274,24 +305,24 @@ class StopCirculation(CryoScript):
             last_updated = tupdated
 
             # check if MFC001 is above threshold and update total volume
-            if MFC001.readback > mfc_nonzero_thresh:
+            if MFC001.readback > self.settings['MFC001_bkgd_SLPM']:
                 volume += rate * (t1-t0)
             t0 = t1
 
             # print volume circulated
-            if (time.time()-t0_print) > print_dt:
+            if (time.time()-t0_print) > self.settings['wait_print_delay_s']:
                 t0_print = time.time()
                 self.log(f'Circulated {volume:.0f} SL')
 
             # sleep
-            time.sleep(1)
+            self.client.communicate(1000)
 
             # dry run
             if self.dry_run:
                 break
 
         # if ended early still print volume
-        if volume < volume_SL:
+        if volume < self.settings['MFC001_SL']:
             self.log(f'Circulated {volume:.0f} SL')
 
 class StartRecovery(CryoScript):
@@ -308,22 +339,22 @@ class StartRecovery(CryoScript):
     devices_on =  [ 'CP001', 'CP101', 'MP001', 'MP002', 'MFC001',
                     'HTR010', 'HTR012', 'HTR105', 'HTR107']
 
-    def exit(self):
-        # if self.run_state == 'av auto disabled':
-        #     for av in ['AV020', 'AV021']:
-        #         self.devices[av].enable_auto()
-        return
+    # default settings
+    DEFAULT_SETTINGS = collections.OrderedDict([
+        ("Enabled", False),
+        ('dry_run', False),
+        ("timeout_s", 10),
+        ('wait_print_delay_s', 900),
+        ('temperature_K', 30),
+        ("_exit_with_error", False),    # if true, script exited unexpectedly
+        ("_parnames", ["temperature_K",]),
+    ])
 
     def run(self, temperature=30):
 
-        # av autocontrol off
-        # self.run_state = 'av auto disabled'
-        # for av in ['AV020', 'AV021']:
-        #     self.devices[av].disable_auto()
-
         # heater autocontrol set to 30K
         for pid in ['PID_PUR_ISO70K', 'PID_PUR_ISO20K', 'PID_PUR_HE20K', 'PID_PUR_HE70K']:
-            self.set_odb(f'/Equipment/{pid}/Settings/target_setpoint', temperature)
+            self.set_odb(f'/Equipment/{pid}/Settings/target_setpoint', self.settings['temperature_K'])
 
         # valves
         self.devices.AV021.close()
@@ -349,13 +380,21 @@ class StopRecovery(CryoScript):
     devices_on =  [ 'CP001', 'CP101', 'MP001', 'MP002', 'MFC001', 'HTR010', 'BP001',
                     'HTR012', 'HTR105', 'HTR107']
 
-    def check_status(self):
-        super().check_status()
+    # default settings
+    DEFAULT_SETTINGS = collections.OrderedDict([
+        ("Enabled", False),
+        ('dry_run', False),
+        ("timeout_s", 10),
+        ('wait_print_delay_s', 900),
+        ('press_thresh_mbar', 4),
+        ("_exit_with_error", False),    # if true, script exited unexpectedly
+        ("_parnames", ["press_thresh_mbar",]),
+    ])
 
-    def run(self, pt_thresh=3):
+    def run(self):
 
-        self.wait_until_lessthan('PT004', pt_thresh)
-        self.wait_until_lessthan('PT005', pt_thresh)
+        self.wait_until_lessthan('PT004', lambda : self.settings['press_thresh_mbar'])
+        self.wait_until_lessthan('PT005', lambda : self.settings['press_thresh_mbar'])
 
         self.devices.BP001.off()
         self.devices.AV024.close()
@@ -376,23 +415,32 @@ class StartRegeneration(CryoScript):
     devices_on =  [ 'CP001', 'CP101', 'MP001', 'MP002', 'MFC001', 'HTR010',
                     'HTR012', 'HTR105', 'HTR107']
 
+    # default settings
+    DEFAULT_SETTINGS = collections.OrderedDict([
+        ("Enabled", False),
+        ('dry_run', False),
+        ("timeout_s", 10),
+        ('wait_print_delay_s', 900),
+        ('temperature_K', 180),
+        ('fm208_thresh_slpm', 1.0),
+        ('cg003_thresh', 0.2),
+        ("_exit_with_error", False),    # if true, script exited unexpectedly
+        ("_parnames", ["temperature_K", "fm208_thresh_slpm", "cg003_thresh"]),
+    ])
+
     def exit(self):
-
-        if self.run_state is None:
-            return
-
-        elif 'startup' in self.run_state:
+        if 'startup' in self.run_state:
             self.devices.BP002.off()
             self.devices.CP001.on()
             self.devices.CP101.on()
 
-    def run(self, temperature=180, fm208_at_least=5):
+    def run(self):
 
         self.run_state = 'startup'
         self.devices.BP002.on()
         self.devices.CP001.off()
         self.devices.CP101.off()
-        self.wait_until_lessthan('CG003', 0.2)
+        self.wait_until_lessthan('CG003', lambda : self.settings['cg003_thresh'])
 
         # double check that security valves are still closed
         for av in ['AV025', 'AV024', 'AV032']:
@@ -429,21 +477,21 @@ class StartRegeneration(CryoScript):
 
         # enable autostat control
         for pid in ['PID_PUR_ISO70K', 'PID_PUR_ISO20K', 'PID_PUR_HE20K', 'PID_PUR_HE70K']:
-            self.set_odb(f'/Equipment/{pid}/Settings/target_setpoint', temperature)
+            self.set_odb(f'/Equipment/{pid}/Settings/target_setpoint', self.settings['temperature_K'])
             self.set_odb(f'/Equipment/{pid}/Settings/Enabled', True)
 
         # time delay to skip that spike
         self.log('Waiting a grace period of 30 s')
         if not self.dry_run:
-            time.sleep(30)
+            self.client.communicate(30000)
 
         # wait for FM208 to start increasing or the temperature to hit half the target
         def wait_condition():
-            if self.devices.FM208.readback > fm208_at_least:
+            if self.devices.FM208.readback > self.settings['fm208_thresh_slpm']:
                 return True
 
             TSlist = ['TS512', 'TS510', 'TS511', 'TS513']
-            if any([self.devices[ts].readback > temperature/2 for ts in TSlist]):
+            if any([self.devices[ts].readback > self.settings['temperature_K']/2 for ts in TSlist]):
                 return True
 
             return False
@@ -456,12 +504,12 @@ class StartRegeneration(CryoScript):
 
         # run the wait procedure
         FM208 = self.devices.FM208
-        if FM208.readback < fm208_at_least:
-            self.log(f'Waiting for {FM208.path} to rise above {fm208_at_least} {FM208.readback_units}, currently {FM208.readback:.3f} {FM208.readback_units}')
+        if FM208.readback < self.settings['fm208_thresh_slpm']:
+            self.log(f'Waiting for {FM208.path} to rise above {self.settings["fm208_thresh_slpm"]} {FM208.readback_units}, currently {FM208.readback:.3f} {FM208.readback_units}')
 
             self.wait(wait_condition, wait_message)
 
-        self.log(f'{FM208.path} readback ({FM208.readback:.2f} {FM208.readback_units}) is greater than {fm208_at_least} {FM208.readback_units}')
+        self.log(f'{FM208.path} readback ({FM208.readback:.2f} {FM208.readback_units}) is greater than {self.settings["fm208_thresh_slpm"]} {FM208.readback_units}')
 
 class StopRegeneration(CryoScript):
     """Wait until FM208 drops below threshold and the trap is at tempertaure then stop the regeneration processs"""
@@ -475,16 +523,28 @@ class StopRegeneration(CryoScript):
 
     devices_on = ['HTR010', 'HTR012', 'HTR105', 'HTR107']
 
-    def run(self, temperature, fm208_thresh):
+    # default settings
+    DEFAULT_SETTINGS = collections.OrderedDict([
+        ("Enabled", False),
+        ('dry_run', False),
+        ("timeout_s", 10),
+        ('wait_print_delay_s', 900),
+        ('temperature_thresh_K', 180),
+        ('fm208_thresh_slpm', 0.25),
+        ("_exit_with_error", False),    # if true, script exited unexpectedly
+        ("_parnames", ["temperature_thresh_K", "fm208_thresh_slpm"]),
+    ])
+
+    def run(self):
 
         # block until at temperature
-        self.wait_until_greaterthan('TS512', temperature-0.1)
-        self.wait_until_greaterthan('TS510', temperature-0.1)
-        self.wait_until_greaterthan('TS511', temperature-0.1)
-        self.wait_until_greaterthan('TS513', temperature-0.1)
+        self.wait_until_greaterthan('TS512', lambda : self.settings['temperature_thresh_K']-0.1)
+        self.wait_until_greaterthan('TS510', lambda : self.settings['temperature_thresh_K']-0.1)
+        self.wait_until_greaterthan('TS511', lambda : self.settings['temperature_thresh_K']-0.1)
+        self.wait_until_greaterthan('TS513', lambda : self.settings['temperature_thresh_K']-0.1)
 
         # block until FM208 is below threshold
-        self.wait_until_lessthan('FM208', fm208_thresh)
+        self.wait_until_lessthan('FM208', lambda : self.settings['fm208_thresh_slpm'])
 
         # turn off autostat enable
         pids = ['PID_PUR_ISO70K', 'PID_PUR_ISO20K', 'PID_PUR_HE20K', 'PID_PUR_HE70K']
@@ -502,35 +562,27 @@ class StopRegeneration(CryoScript):
         # turn off pump
         self.devices.BP002.off()
 
-# RUN SCRIPT ==============================================================
-# For best protections of cryostat on error, run inside of "with" statement
+class CryoScriptTester(CryoScript):
+    # default settings
+    DEFAULT_SETTINGS = collections.OrderedDict([
+        ("temperature_K", 45),
+        ("test", 150),
+        ("test2", "a string"),
+        ("timeout_s", 10),
+        ('dry_run', False),
+        ('wait_sleep_s', 60),
+        ('wait_print_delay_s', 900),
+        ("Enabled", False),
+        ("_parnames", ["temperature_K", "test", "test2"]),
+    ])
 
-if __name__ == "__main__":
+    def check_status(self):
+        pass
 
-    # THESE SCRIPTS ARE WORKING
-    # Comment out steps to not run that step
+    def run(self):
 
-    # start this step as soon as circulation begins, starts integrating when script is launched
-    with StopCirculation() as script:
-        script(volume_SL=23500) # 0 to disable
-
-    with StartRecovery() as script: # does not toggle or check AV020 and AV021 autocontrol
-       script(temperature=30) # htr setpoint when recovering, AV050 must be bypassed
-
-    with StopRecovery() as script:
-       script(pt_thresh=4)    # pressure threshold to stop recovery
-
-    with StartRegeneration() as script:
-       script(temperature=180, fm208_at_least=1)
-
-    with StopRegeneration() as script:
-       script(temperature=180, fm208_thresh = 0.25)
-
-    with StartCooling() as script:
-       script(temperature = 30)
-
-    #with StopCooling() as script:
-     #   script(temperature = 30)
-
-    # BELOW THIS POINT IS DRY_RUN ONLY (UNIMPLEMENTED)
-
+        t0 = time.time()
+        wait_condition = lambda : time.time() - t0 > self.settings['temperature_K']
+        printfn = lambda : print(f'Waiting during {self.settings["test2"]}')
+        self.wait(wait_condition, printfn)
+        print(self.settings['test2'], self.client.odb_get(f'{self.odb_settings_dir}/test2'))

@@ -4,10 +4,15 @@
 
 import midas, midas.client
 from EpicsDevice import EpicsDeviceCollection
-import time, logging
-from logging.handlers import RotatingFileHandler
+import time
 
-class CryoScript(object):
+import midas
+import midas.frontend
+import collections
+import traceback
+import numpy as np
+
+class CryoScript(midas.frontend.EquipmentBase):
     """Queue and execute a sequence of cryostat control operations
 
     Base class for most things
@@ -20,11 +25,6 @@ class CryoScript(object):
         devices_off (list): initial checklist of names (no prefix or suffix). Pass if off/closed
         devices_on (list): initial checklist of names (no prefix or suffix). Pass if on/open
         run_state: defines what state the system is in to better put the cryostat in a safe operation mode upon failure
-
-    Args:
-        timeout (int): duration in seconds before raising timeout exeception
-        dry_run (bool): if true, instead of performing actions print action to screen
-
     """
 
     # variables for initial checks of cryo state
@@ -39,65 +39,34 @@ class CryoScript(object):
     devices_below = {}      # pass if readback < threshold
     devices_above = {}      # pass if readback > threshold
 
-    # don't change this unless you want to pollute the ODB programs directory
-    program_name = 'CryoScript'
+    # default settings
+    DEFAULT_SETTINGS = collections.OrderedDict([
+        ("Enabled", False),
+        ('dry_run', False),
+        ("timeout_s", 10),
+        ('wait_print_delay_s', 900),
+        ("_exit_with_error", False),    # if true, script exited unexpectedly
+    ])
 
-    def __init__(self, timeout=10, dry_run=False):
+    def __init__(self, client, logger):
+        default_common = midas.frontend.InitialEquipmentCommon()
+        default_common.equip_type = midas.EQ_PERIODIC
+        default_common.buffer_name = "SYSTEM"
+        default_common.trigger_mask = 0
+        default_common.event_id = 2323
+        default_common.period_ms = 5000
+        default_common.read_when = midas.RO_ALWAYS
+        default_common.log_history = 5
 
-        # make logger
-        self.logger = logging.getLogger(self.program_name)
-        self.logger.setLevel(logging.INFO)
-        log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-
-        # setup file handler with rotating file handling
-        rfile_handler = RotatingFileHandler(f'{self.program_name}.log', mode='a',
-                                            maxBytes=5*1024*1024, backupCount=1,
-                                            encoding=None, delay=False)
-        rfile_handler.setFormatter(log_formatter)
-        rfile_handler.setLevel(logging.INFO)
-
-        # only add handler if it doesn't exist already
-        add_handler = True
-        for handler in self.logger.handlers:
-            if handler.baseFilename == rfile_handler.baseFilename:
-                add_handler = False
-                break
-
-        if add_handler:
-            self.logger.addHandler(rfile_handler)
-
-        # connect to midas client
-        self.client = midas.client.MidasClient(self.program_name)
+        # You MUST call midas.frontend.EquipmentBase.__init__ in your equipment's __init__ method!
+        midas.frontend.EquipmentBase.__init__(self, client, self.equip_name, default_common, self.DEFAULT_SETTINGS)
 
         # initialization
-        self.devices = EpicsDeviceCollection(self.log, timeout=timeout, dry_run=dry_run)
-        self.timeout = timeout
-        self.dry_run = dry_run
+        self.logger = logger
+        self.devices = EpicsDeviceCollection(self.log,
+                                            timeout=self.timeout,
+                                            dry_run=self.dry_run)
         self.run_state = None
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-
-        # put cryo in a safe state
-        if exc_type is not None:
-            self.log(str(exc_value), is_error=True)
-            self.exit()
-
-        # disconnect from midas client
-        self.client.disconnect()
-
-        # wait period
-        time.sleep(1)
-
-        return
-
-    def __call__(self, *args, **kwargs):
-        self.log(f'started')
-        self.check_status()
-        self.run(*args, **kwargs)
-        self.log(f'completed')
 
     def check_status(self):
         """Verify that the state of the system is as expected"""
@@ -160,17 +129,21 @@ class CryoScript(object):
             elif self.dry_run:
                 self.log(f'{name} is above threshold ({val:.3f} > {thresh:.3f}), as it should')
 
-        # bad exit
         self.log(f'All checks passed', False)
 
     @property
-    def name(self):
-        return self.__class__.__name__
+    def dry_run(self):      return bool(self.client.odb_get(f'{self.odb_settings_dir}/dry_run'))
+    @property
+    def equip_name(self):   return self.__class__.__name__
+    @property
+    def timeout(self):      return self.settings['timeout_s']
 
     def exit(self):
-        """Put the system into a safe state upon error or exit
+        """Put the system into a safe state upon error
 
         make use of the self.run_state variable to choose between exit strategies
+
+        Upon clean exit, self.run_state = None by default, and this code will not execute.
 
         Args:
             state: define system state to select between different exit strategies
@@ -178,18 +151,7 @@ class CryoScript(object):
         pass
 
     def get_odb(self, path):
-
-        nattempts = 0
-
-        while nattempts < 2:
-            try:
-                return self.client.odb_get(path)
-
-            # try reconnecting
-            except midas.MidasError as err:
-                self.client = midas.client.MidasClient(self.program_name)
-                time.sleep(1)
-                nattempts += 1
+        return self.client.odb_get(path)
 
     def log(self, msg, is_error=False):
 
@@ -198,7 +160,7 @@ class CryoScript(object):
             msg = f'[DRY RUN] {msg}'
 
         # reformat msg to include name
-        msg = f'[{self.name}] {msg}'
+        msg = f'[{self.equip_name}] {msg}'
 
         # dry run print
         if self.dry_run:
@@ -222,25 +184,27 @@ class CryoScript(object):
             except Exception as err:
                 self.logger.error(f'MIDAS client failed to recieve message. Traceback: {err}')
 
-    def run(self):
-        """Run the script
-
-        Notes:
-            This function is called inside of self.__call__() as a conveniance wrapper
-            Define self.run_state and self.exit() to exit safely on crash or error
-            Error messages are caught by self.__exit__() and are automatically logged
-            Best practice is to run inside of "with" statement
+    def readout_func(self):
+        """
+        For a periodic equipment, this function will be called periodically
+        (every 100ms in this case). It should return either a `cdms.event.Event`
+        or None (if we shouldn't write an event).
         """
         pass
 
-    def set_odb(self, path, value, timeout=10, exit_strategy=None):
+    def run(self):
+        """Run the script. Implement here the actions to take
+
+        This must take no inputs, instead access ODB parameters
+        """
+        pass
+
+    def set_odb(self, path, value):
         """Set ODB variable
 
         Args:
             path (str): odb path to variable which to set
             value: value to set
-            timeout (int): timeout in seconds for setting the variable
-            exit_strategy: passed to self.exit
         """
 
         # dry run print
@@ -251,22 +215,79 @@ class CryoScript(object):
         t0 = time.time()
         while self.client.odb_get(path) != value:
             # timeout
-            if time.time()-t0 > timeout:
-                raise TimeoutError(f'Attempted to set {path} for {timeout} seconds, stuck at {client.odb_get(path)}')
+            if time.time()-t0 > self.timeout:
+                raise TimeoutError(f'Attempted to set {path} for {self.timeout} seconds, stuck at {client.odb_get(path)}')
 
             self.client.odb_set(path, value)
             time.sleep(1)
 
         self.log(f'Set {path} to {value}')
 
-    def wait(self, condition, printfn=None, sleep_dt=60, print_dt=900):
-        """Pause execution until condition evaluates to True
+    def detailed_settings_changed_func(self, path, idx, new_value):
+        """
+        You MAY implement this function in your derived class if you want to be
+        told when a variable in /Equipment/<xxx>/Settings has changed.
+
+        If you don't care about what changed (just that any setting has changed),
+        implement `settings_changed_func()` instead,
+
+        We will automatically update self.settings before calling this function,
+        but you may want to implement this function to validate any settings
+        the user has set, for example.
+
+        It may return anything (we don't check it).
+
+        Args:
+            * path (str) - The ODB path that changed
+            * idx (int) - If the entry is an array, the array element that changed
+            * new_value (int/float/str etc) - The new ODB value (the single array
+                element if it's an array that changed)
+        """
+        # new device collection if timeout or dry_run changed
+        if 'timeout' in path or 'dry_run' in path:
+            self.devices = EpicsDeviceCollection(self.log,
+                                                timeout=self.timeout,
+                                                dry_run=self.dry_run)
+
+        # start run
+        elif 'Enabled' in path and new_value:
+
+            self.log(f'started')
+            self.client.odb_set(f'{self.odb_settings_dir}/_exit_with_error', False)
+
+            # run very safely
+            try:
+                self.check_status()
+                self.run()
+
+            # if error, log then exit cleanly
+            except Exception as err:
+                self.log(f'Exiting with error: {str(err)}')
+                self.log(f'{traceback.format_exc()}')
+                self.client.odb_set(f'{self.odb_settings_dir}/_exit_with_error', True)
+
+            # if no exceptions raised
+            else:
+                self.run_state = None
+                self.log('completed')
+
+            # ensure clean exit regardless of crash
+            finally:
+
+                # only exit if runstate not none
+                if self.run_state is not None:
+                    self.exit()
+                self.client.odb_set(f'{self.odb_settings_dir}/Enabled', False)
+
+                # let the sequencer know to start the next script in the queue
+                self.client.odb_set('/Equipment/CryoScriptSequencer/Settings/_script_is_running', False)
+
+    def wait(self, condition, printfn=None):
+        """Pause execution until condition evaluates to True or Enabled is False
 
         Args:
             condition (function handle): function with prototype fn(), which returns True if execution should continue, else wait.
             printfn (function handle): function with prototype fn(), which returns the statement to log during the wait process. If not use a default statement. Example: lambda: 'Waiting...'
-            sleep_dt (int): number of seconds to sleep before checking the condition again
-            print_dt (int): number of seconds between print statement
         """
 
         # dry run print
@@ -279,51 +300,50 @@ class CryoScript(object):
             printfn = lambda : 'Condition not satisfied. Waiting...'
 
         t0 = time.time()
-        while not condition():
-            if (time.time()-t0) > print_dt:
+        while not condition() and self.settings['Enabled']:
+            if (time.time()-t0) > self.settings['wait_print_delay_s']:
                 t0 = time.time()
                 self.log(printfn())
 
-            time.sleep(sleep_dt)
+            # sleep 1s
+            self.client.communicate(1000)
 
-    def wait_until_greaterthan(self, name, thresh, sleep_dt=60, print_dt=900):
+    def wait_until_greaterthan(self, name, thresh):
         """Block program execution until device readback is above the theshold
 
         Args:
             name (str): device name which should be above threshold
-            thresh (float): threshold
-            sleep_dt (int): number of seconds to sleep before checking the condition again
-            print_dt (int): number of seconds between print statement
+            thresh (fn handle): function which returns the value of the threshold
         """
         device = self.devices[name]
 
-        if device.readback < thresh:
-            self.log(f'Waiting for {device.path} to rise above threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
+        if isinstance(thresh, (int, float)):
+            thresh = lambda : thresh
 
-            self.wait(condition=lambda : device.readback > thresh,
-                      printfn=lambda : f'{device.path} below threshold, currently {device.readback:.3f} {device.readback_units}',
-                      sleep_dt=sleep_dt,
-                      print_dt=print_dt)
+        if device.readback < thresh():
+            self.log(f'Waiting for {device.path} to rise above threshold {thresh()} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
 
-        self.log(f'{device.path} readback ({device.readback:.2f} {device.readback_units}) is greater than threshold of {thresh} {device.readback_units}')
+            self.wait(condition=lambda : device.readback > thresh(),
+                      printfn=lambda : f'{device.path} below threshold, currently {device.readback:.3f} {device.readback_units}')
 
-    def wait_until_lessthan(self, name, thresh, sleep_dt=60, print_dt=900):
+        self.log(f'{device.path} readback ({device.readback:.2f} {device.readback_units}) is greater than threshold of {thresh()} {device.readback_units}')
+
+    def wait_until_lessthan(self, name, thresh):
         """Block program execution until device readback is below the theshold
 
         Args:
             name (str): device name which should be below threshold
-            thresh (float): threshold
-            sleep_dt (int): number of seconds to sleep before checking the condition again
-            print_dt (int): number of seconds between print statement
+            thresh (fn handle): function which returns the value of the threshold
         """
         device = self.devices[name]
 
-        if device.readback > thresh:
-            self.log(f'Waiting for {device.path} to drop below threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
+        if isinstance(thresh, (int, float)):
+            thresh = lambda : thresh
 
-            self.wait(condition=lambda : device.readback < thresh,
-                      printfn=lambda : f'{device.path} above threshold, currently {device.readback:.3f} {device.readback_units}',
-                      sleep_dt=sleep_dt,
-                      print_dt=print_dt)
+        if device.readback > thresh():
+            self.log(f'Waiting for {device.path} to drop below threshold {thresh()} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
 
-        self.log(f'{device.path} readback ({device.readback:.2f} {device.readback_units}) is less than threshold of {thresh} {device.readback_units}')
+            self.wait(condition=lambda : device.readback < thresh(),
+                      printfn=lambda : f'{device.path} above threshold, currently {device.readback:.3f} {device.readback_units}')
+
+        self.log(f'{device.path} readback ({device.readback:.2f} {device.readback_units}) is less than threshold of {thresh()} {device.readback_units}')
