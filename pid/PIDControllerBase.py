@@ -364,6 +364,15 @@ class PIDControllerBase_ZeroOnDisable(PIDControllerBase):
 
     def disable(self):
         self.pv['ctrl'].put(0.0)
+        val = self.pv['ctrl'].get()
+
+        # ensure that zero is set
+        while val != 0.0:
+            self.pv['ctrl'].put(0.0)
+            time.sleep(1)
+            val = self.pv['ctrl'].get()
+
+        # finish disable
         super().disable()
 
     def readout_func(self):

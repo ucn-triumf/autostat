@@ -178,7 +178,7 @@ class PIDCtrl_HTR005(PIDControllerBase_ZeroOnDisable_Panic):
     # ctrl: the device to control directly
     # target: the device whose value should be approaching the setpoint
     EPICS_PV = {'ctrl':             'UCN2:ISO:HTR005:CUR', # write access
-                'target':           'UCN2:ISO:TS012:RDTEMPK',
+                'target':           'UCN2:ISO:TS021:RDTEMPK',
                 'htr_staton':       'UCN2:ISO:HTR005:STATON',
                 }
 
@@ -330,7 +330,7 @@ class PIDCtrl_HTR008(PIDControllerBase_ZeroOnDisable_Panic):
                 'time_step_s': (0, 500),
                 'output_limit_low': (0, 2200),
                 'output_limit_high': (0, 2200),
-                'target_high_thresh': (0, 325),
+                'target_high_thresh': (0, 350),
                 }
 
     # devices/indicators from epics to monitor or write to
