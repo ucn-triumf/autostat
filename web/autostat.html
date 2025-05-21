@@ -201,16 +201,12 @@
                 for(let i=0; i<seq_queuelen; i++){
                     if(i === seq_idx && seq_enabled){
                         document.getElementById(`queue_row${i}`).style.background = "#ffffb3";
+                        document.getElementById(`script_row_${seq_fnlist[i]}`).style.background = "#ffffb3";
                     } else {
                         document.getElementById(`queue_row${i}`).style.background = "";
+                        document.getElementById(`script_row_${seq_fnlist[i]}`).style.background = "";
                     }
                 }
-
-                // WATCH RUNNING SCRIPT TO CHECK FOR CRASHES -----------------
-
-                // mjsonrpc_db_get_values([`/Equipment/${fname}`])
-
-
 
                 gStatusInflight = false; // finished async routine
             }).catch(function(error) {
@@ -295,6 +291,9 @@
                 row = table.insertRow();
                 let equip = equipments[i][0];
                 let desc = equipments[i][1];
+
+                // row id
+                row.id = `script_row_${equip}`;
 
                 let cell = row.insertCell();
                 cell.innerHTML = `<a href="/Equipment/${equip}/Settings"><div id=${equip}_title>${equip}</div></a>`;
