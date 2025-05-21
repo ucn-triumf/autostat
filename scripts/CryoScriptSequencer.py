@@ -8,7 +8,7 @@ from EpicsDevice import EpicsDeviceCollection
 import time, logging
 from logging.handlers import RotatingFileHandler
 import collections
-# TODO: looping doesn't work properly
+# TODO: test changing of variable mid-run
 
 class CryoScriptSequencer(midas.frontend.EquipmentBase):
     """Queue and execute a sequence of cryostat scripts"""
@@ -59,7 +59,7 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
             self.client.msg(msg, is_error)
 
     def queue_add(self, name):
-        """Add an equipment to the queue
+        """Add an equipment to the end of the queue
 
         Args:
             name (str): name of the equipment (no full path)
@@ -102,6 +102,7 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
         fns = self.client.odb_get(f'{self.odb_settings_dir}/_functions')
         inpts = self.client.odb_get(f'{self.odb_settings_dir}/_inputs')
         n = self.client.odb_get(f'{self.odb_settings_dir}/_queue_length')
+        idx_now = self.client.odb_get(f'{self.odb_settings_dir}/_current')
 
         # early end condition
         if idx == n-1:
@@ -111,9 +112,16 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
         fns[idx], fns[idx+1] = fns[idx+1], fns[idx]
         inpts[idx], inpts[idx+1] = inpts[idx+1], inpts[idx]
 
+        # check if swapped with currently running script
+        if idx == idx_now:
+            idx_now += 1
+        elif idx+1 == idx_now:
+            idx_now -= 1
+
         # re-add arrays
         self.client.odb_set(f'{self.odb_settings_dir}/_functions', fns)
         self.client.odb_set(f'{self.odb_settings_dir}/_inputs', inpts)
+        self.client.odb_set(f'{self.odb_settings_dir}/_current', idx_now)
 
     def queue_remove(self, idx):
         """Remove an equipment from the queue
@@ -126,16 +134,28 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
         fns = self.client.odb_get(f'{self.odb_settings_dir}/_functions')
         inpts = self.client.odb_get(f'{self.odb_settings_dir}/_inputs')
         n = self.client.odb_get(f'{self.odb_settings_dir}/_queue_length')
+        idx_now = self.client.odb_get(f'{self.odb_settings_dir}/_current')
+        enabled = self.client.odb_get(f'{self.odb_settings_dir}/Enabled')
+
+        # disallow removal of currently running script
+        if idx == idx_now and enabled:
+            self.client.msg('I will not permit removal of the currently running script from the queue')
+            return
 
         # remove element idx
         fns.pop(idx)
         inpts.pop(idx)
         n -= 1
 
+        # de-increment the current run
+        if idx_now > idx:
+            idx_now -= 1
+
         # re-add arrays
         self.client.odb_set(f'{self.odb_settings_dir}/_functions', fns)
         self.client.odb_set(f'{self.odb_settings_dir}/_inputs', inpts)
         self.client.odb_set(f'{self.odb_settings_dir}/_queue_length', max(0, n))
+        self.client.odb_set(f'{self.odb_settings_dir}/_current', idx_now)
 
     def queue_up(self, idx):
         """Move queued item from idx to idx-1
@@ -150,14 +170,22 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
         # get settings arrays
         fns = self.client.odb_get(f'{self.odb_settings_dir}/_functions')
         inpts = self.client.odb_get(f'{self.odb_settings_dir}/_inputs')
+        idx_now = self.client.odb_get(f'{self.odb_settings_dir}/_current')
 
         # swap element idx
         fns[idx], fns[idx-1] = fns[idx-1], fns[idx]
         inpts[idx], inpts[idx-1] = inpts[idx-1], inpts[idx]
 
+        # check if swapped with currently running script
+        if idx == idx_now:
+            idx_now -= 1
+        elif idx-1 == idx_now:
+            idx_now += 1
+
         # re-add arrays
         self.client.odb_set(f'{self.odb_settings_dir}/_functions', fns)
         self.client.odb_set(f'{self.odb_settings_dir}/_inputs', inpts)
+        self.client.odb_set(f'{self.odb_settings_dir}/_current', idx_now)
 
     def start_script(self, idx):
 
@@ -305,7 +333,6 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
                 self.client.odb_set(f'{self.odb_settings_dir}/Enabled', False)
                 return
 
-
             # index of current run
             idx = self.current
 
@@ -330,3 +357,27 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
 
             # start the script
             self.start_script(idx)
+
+        # TODO: test this
+        # synchronize inputs
+        # elif '_inputs' in path:
+        #     fnname = self.settings['_functions'][idx]
+        #     inputs = new_value
+
+        #     # set the equipment parameter if its the currently running equipment
+        #     if self.client.odb_get(f'/Equipment/{fnname}/Settings/Enabled'):
+
+        #         # iterate parameters in param string
+        #         for parname in inputs.split(','):
+
+                    # par, value = parname.strip().split(':')
+                    # par = par.strip()
+
+                    # # convert to numerical, if possible
+                    # try:
+                    #     value = float(value)
+                    # except ValueError:
+                    #     pass
+
+                    # # set the value
+                    # self.client.odb_set(f'/Equipment/{fnname}/Settings/{par}', value)

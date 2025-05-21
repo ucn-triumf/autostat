@@ -51,6 +51,9 @@ class MyFrontend(midas.frontend.FrontendBase):
         self.add_equipment(he_purifier.StartRegeneration(self.client, logger))
         self.add_equipment(he_purifier.StopRegeneration(self.client, logger))
 
+        # test
+        self.add_equipment(he_purifier.CryoScriptTester(self.client, None))
+
 
         self.client.msg("AutoStat Scripting frontend initialized.")
 

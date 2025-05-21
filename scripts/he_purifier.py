@@ -100,8 +100,8 @@ class StopCooling(CryoScript):
                 self.log(f'{pid} setpoint is {setpoint:.1f}K')
 
         # wait for the temperature to drop
-        self.wait_until_lessthan('TS511', self.settings['temperature_K']+0.1)
-        self.wait_until_lessthan('TS513', self.settings['temperature_K']+0.1)
+        self.wait_until_lessthan('TS511', lambda : self.settings['temperature_K']+0.1)
+        self.wait_until_lessthan('TS513', lambda : self.settings['temperature_K']+0.1)
 
 # TODO: UPDATE / IMPLEMENT
 class StartCirculation(CryoScript):
@@ -391,8 +391,8 @@ class StopRecovery(CryoScript):
 
     def run(self):
 
-        self.wait_until_lessthan('PT004', self.settings['press_thresh_mbar'])
-        self.wait_until_lessthan('PT005', self.settings['press_thresh_mbar'])
+        self.wait_until_lessthan('PT004', lambda : self.settings['press_thresh_mbar'])
+        self.wait_until_lessthan('PT005', lambda : self.settings['press_thresh_mbar'])
 
         self.devices.BP001.off()
         self.devices.AV024.close()
@@ -420,7 +420,7 @@ class StartRegeneration(CryoScript):
         ("timeout_s", 10),
         ('wait_print_delay_s', 900),
         ('temperature_K', 180),
-        ('fm208_thresh_slpm', 1),
+        ('fm208_thresh_slpm', 1.0),
         ('cg003_thresh', 0.2),
         ("_exit_with_error", False),    # if true, script exited unexpectedly
         ("_parnames", ["temperature_K", "fm208_thresh_slpm", "cg003_thresh"]),
@@ -438,7 +438,7 @@ class StartRegeneration(CryoScript):
         self.devices.BP002.on()
         self.devices.CP001.off()
         self.devices.CP101.off()
-        self.wait_until_lessthan('CG003', self.settings['cg003_thresh'])
+        self.wait_until_lessthan('CG003', lambda : self.settings['cg003_thresh'])
 
         # double check that security valves are still closed
         for av in ['AV025', 'AV024', 'AV032']:
@@ -536,13 +536,13 @@ class StopRegeneration(CryoScript):
     def run(self):
 
         # block until at temperature
-        self.wait_until_greaterthan('TS512', self.settings['temperature_thresh_K']-0.1)
-        self.wait_until_greaterthan('TS510', self.settings['temperature_thresh_K']-0.1)
-        self.wait_until_greaterthan('TS511', self.settings['temperature_thresh_K']-0.1)
-        self.wait_until_greaterthan('TS513', self.settings['temperature_thresh_K']-0.1)
+        self.wait_until_greaterthan('TS512', lambda : self.settings['temperature_thresh_K']-0.1)
+        self.wait_until_greaterthan('TS510', lambda : self.settings['temperature_thresh_K']-0.1)
+        self.wait_until_greaterthan('TS511', lambda : self.settings['temperature_thresh_K']-0.1)
+        self.wait_until_greaterthan('TS513', lambda : self.settings['temperature_thresh_K']-0.1)
 
         # block until FM208 is below threshold
-        self.wait_until_lessthan('FM208', self.settings['fm208_thresh_slpm'])
+        self.wait_until_lessthan('FM208', lambda : self.settings['fm208_thresh_slpm'])
 
         # turn off autostat enable
         pids = ['PID_PUR_ISO70K', 'PID_PUR_ISO20K', 'PID_PUR_HE20K', 'PID_PUR_HE70K']
@@ -578,4 +578,9 @@ class CryoScriptTester(CryoScript):
         pass
 
     def run(self):
+
+        t0 = time.time()
+        wait_condition = lambda : time.time() - t0 > self.settings['temperature_K']
+        printfn = lambda : print(f'Waiting during {self.settings["test2"]}')
+        self.wait(wait_condition, printfn)
         print(self.settings['test2'], self.client.odb_get(f'{self.odb_settings_dir}/test2'))

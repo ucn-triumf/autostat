@@ -313,31 +313,37 @@ class CryoScript(midas.frontend.EquipmentBase):
 
         Args:
             name (str): device name which should be above threshold
-            thresh (float): threshold
+            thresh (fn handle): function which returns the value of the threshold
         """
         device = self.devices[name]
 
-        if device.readback < thresh:
-            self.log(f'Waiting for {device.path} to rise above threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
+        if isinstance(thresh, (int, float)):
+            thresh = lambda : thresh
 
-            self.wait(condition=lambda : device.readback > thresh,
+        if device.readback < thresh():
+            self.log(f'Waiting for {device.path} to rise above threshold {thresh()} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
+
+            self.wait(condition=lambda : device.readback > thresh(),
                       printfn=lambda : f'{device.path} below threshold, currently {device.readback:.3f} {device.readback_units}')
 
-        self.log(f'{device.path} readback ({device.readback:.2f} {device.readback_units}) is greater than threshold of {thresh} {device.readback_units}')
+        self.log(f'{device.path} readback ({device.readback:.2f} {device.readback_units}) is greater than threshold of {thresh()} {device.readback_units}')
 
     def wait_until_lessthan(self, name, thresh):
         """Block program execution until device readback is below the theshold
 
         Args:
             name (str): device name which should be below threshold
-            thresh (float): threshold
+            thresh (fn handle): function which returns the value of the threshold
         """
         device = self.devices[name]
 
-        if device.readback > thresh:
-            self.log(f'Waiting for {device.path} to drop below threshold {thresh} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
+        if isinstance(thresh, (int, float)):
+            thresh = lambda : thresh
 
-            self.wait(condition=lambda : device.readback < thresh,
+        if device.readback > thresh():
+            self.log(f'Waiting for {device.path} to drop below threshold {thresh()} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
+
+            self.wait(condition=lambda : device.readback < thresh(),
                       printfn=lambda : f'{device.path} above threshold, currently {device.readback:.3f} {device.readback_units}')
 
-        self.log(f'{device.path} readback ({device.readback:.2f} {device.readback_units}) is less than threshold of {thresh} {device.readback_units}')
+        self.log(f'{device.path} readback ({device.readback:.2f} {device.readback_units}) is less than threshold of {thresh()} {device.readback_units}')
