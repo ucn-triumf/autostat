@@ -447,7 +447,7 @@ class PIDControllerBase_ZeroOnDisable_Panic(PIDControllerBase_ZeroOnDisable):
             self.panic_thresh = self.limit_var('target_high_thresh', odb_value)
             self.client.msg(f'{self.name} target high threshold changed to {self.panic_thresh}')
         else:
-            super().detailed_settings_changed_func(client, path, idx, odb_value)
+            super().detailed_settings_changed_func(path, idx, odb_value)
 
     def readout_func(self):
         """
