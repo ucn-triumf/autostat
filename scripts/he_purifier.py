@@ -35,14 +35,14 @@ class StartCooling(CryoScript):
             self.devices[htr].on()
 
         # wait until pressure is low before turning on the pump
-        self.wait_until_lessthan('PT050', 30)
+        self.wait_until_lessthan('PT050', lambda : 30)
 
         # turn on pump
         self.devices.CP101.on()
 
         # block until temps are low
-        self.wait_until_lessthan('TS512', 300)
-        self.wait_until_lessthan('TS513', 300)
+        self.wait_until_lessthan('TS512', lambda: 300)
+        self.wait_until_lessthan('TS513', lambda: 300)
 
         # turn on pump
         self.devices.CP001.on()

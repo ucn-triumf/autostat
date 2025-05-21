@@ -317,9 +317,6 @@ class CryoScript(midas.frontend.EquipmentBase):
         """
         device = self.devices[name]
 
-        if isinstance(thresh, (int, float)):
-            thresh = lambda : thresh
-
         if device.readback < thresh():
             self.log(f'Waiting for {device.path} to rise above threshold {thresh()} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
 
@@ -336,9 +333,6 @@ class CryoScript(midas.frontend.EquipmentBase):
             thresh (fn handle): function which returns the value of the threshold
         """
         device = self.devices[name]
-
-        if isinstance(thresh, (int, float)):
-            thresh = lambda : thresh
 
         if device.readback > thresh():
             self.log(f'Waiting for {device.path} to drop below threshold {thresh()} {device.readback_units}, currently {device.readback:.3f} {device.readback_units}')
