@@ -75,9 +75,9 @@
                 ]);
 
 
-            set_script_table_section("Test",
-                [["CryoScriptTester", 'This test has parameter temperature of <span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/temperature_K" data-odb-editable="1"></span> K'],
-                ["CryoScriptTester", 'A second line, now with a string "<span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/test2" data-odb-editable="1"></span>" and a number: <span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/test" data-odb-editable="1"></span>']]);
+            // set_script_table_section("Test",
+            //     [["CryoScriptTester", 'This test has parameter temperature of <span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/temperature_K" data-odb-editable="1"></span> K'],
+            //     ["CryoScriptTester", 'A second line, now with a string "<span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/test2" data-odb-editable="1"></span>" and a number: <span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/test" data-odb-editable="1"></span>']]);
 
             setup_script_queue();
         }
@@ -279,7 +279,7 @@
 
             // make header
             row = table.insertRow();
-            let columns = ["Script Name", "Inputs and Current Values", "Queue"];
+            let columns = ["Script Name", "Inputs and Current Setpoints", "Queue"];
             let width = ["200px", "500px", "70px"];
             let colspan = [2,1,2];
 
@@ -337,7 +337,7 @@
 
             // more headers
             row = table.insertRow();
-            let columns = ["Script Name", "Inputs", "Queue"];
+            let columns = ["Script Name", "Inputs at Script Start", "Queue"];
             let colspan = [2,1,2];
             for(let i=0; i<columns.length; i++){
                 cell = row.insertCell();
@@ -501,7 +501,7 @@
             <table class="mtable">
                 <thead>
                     <tr style="height: 50px">
-                        <th colspan="5" class="mtableheader"><h1>Scripts [THIS TABLE UNDER DEVELOPMENT]</h1></th>
+                        <th colspan="5" class="mtableheader"><h1>Scripts</h1></th>
                     </tr>
                     <tr><td colspan="5" style="text-align: center" id="script_running"></td></tr>
                 </thead>
