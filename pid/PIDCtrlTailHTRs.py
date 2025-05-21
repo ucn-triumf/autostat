@@ -58,7 +58,7 @@ class PIDCtrl_HTR001(PIDControllerBase_ZeroOnDisable_Panic):
         super().__init__(client, 'PID_HTR001')
 
 class PIDCtrl_HTR003(PIDControllerBase_ZeroOnDisable_Panic):
-    """PID_HTR003. Control HTR003 in order to set TS012"""
+    """PID_HTR003. Control HTR003 in order to set TS019"""
 
     # settable limits
     LIMITS = {  'target_setpoint': (0, 1700),
@@ -72,7 +72,7 @@ class PIDCtrl_HTR003(PIDControllerBase_ZeroOnDisable_Panic):
     # ctrl: the device to control directly
     # target: the device whose value should be approaching the setpoint
     EPICS_PV = {'ctrl':             'UCN2:ISO:HTR003:CUR', # write access
-                'target':           'UCN2:ISO:TS012:RDTEMPK',
+                'target':           'UCN2:ISO:TS019:RDTEMPK',
                 'htr_staton':       'UCN2:ISO:HTR003:STATON',
                 }
 
@@ -111,7 +111,7 @@ class PIDCtrl_HTR003(PIDControllerBase_ZeroOnDisable_Panic):
         super().__init__(client, 'PID_HTR003')
 
 class PIDCtrl_HTR004(PIDControllerBase_ZeroOnDisable_Panic):
-    """PID_HTR004. Control HTR004 in order to set TS013"""
+    """PID_HTR004. Control HTR004 in order to set TS020"""
 
     # settable limits
     LIMITS = {  'target_setpoint': (0, 1700),
@@ -125,7 +125,7 @@ class PIDCtrl_HTR004(PIDControllerBase_ZeroOnDisable_Panic):
     # ctrl: the device to control directly
     # target: the device whose value should be approaching the setpoint
     EPICS_PV = {'ctrl':             'UCN2:ISO:HTR004:CUR', # write access
-                'target':           'UCN2:ISO:TS013:RDTEMPK',
+                'target':           'UCN2:ISO:TS020:RDTEMPK',
                 'htr_staton':       'UCN2:ISO:HTR004:STATON',
                 }
 
@@ -164,7 +164,7 @@ class PIDCtrl_HTR004(PIDControllerBase_ZeroOnDisable_Panic):
         super().__init__(client, 'PID_HTR004')
 
 class PIDCtrl_HTR005(PIDControllerBase_ZeroOnDisable_Panic):
-    """PID_HTR005. Control HTR005 in order to set TS014"""
+    """PID_HTR005. Control HTR005 in order to set TS021"""
 
     # settable limits
     LIMITS = {  'target_setpoint': (0, 1700),
@@ -178,7 +178,7 @@ class PIDCtrl_HTR005(PIDControllerBase_ZeroOnDisable_Panic):
     # ctrl: the device to control directly
     # target: the device whose value should be approaching the setpoint
     EPICS_PV = {'ctrl':             'UCN2:ISO:HTR005:CUR', # write access
-                'target':           'UCN2:ISO:TS014:RDTEMPK',
+                'target':           'UCN2:ISO:TS012:RDTEMPK',
                 'htr_staton':       'UCN2:ISO:HTR005:STATON',
                 }
 
@@ -217,7 +217,7 @@ class PIDCtrl_HTR005(PIDControllerBase_ZeroOnDisable_Panic):
         super().__init__(client, 'PID_HTR005')
 
 class PIDCtrl_HTR006(PIDControllerBase_ZeroOnDisable_Panic):
-    """PID_HTR006. Control HTR006 in order to set TS015"""
+    """PID_HTR006. Control HTR006 in order to set TS022"""
 
     # settable limits
     LIMITS = {  'target_setpoint': (0, 1700),
@@ -231,7 +231,7 @@ class PIDCtrl_HTR006(PIDControllerBase_ZeroOnDisable_Panic):
     # ctrl: the device to control directly
     # target: the device whose value should be approaching the setpoint
     EPICS_PV = {'ctrl':             'UCN2:ISO:HTR006:CUR', # write access
-                'target':           'UCN2:ISO:TS015:RDTEMPK',
+                'target':           'UCN2:ISO:TS022:RDTEMPK',
                 'htr_staton':       'UCN2:ISO:HTR006:STATON',
                 }
 
@@ -270,7 +270,7 @@ class PIDCtrl_HTR006(PIDControllerBase_ZeroOnDisable_Panic):
         super().__init__(client, 'PID_HTR006')
 
 class PIDCtrl_HTR007(PIDControllerBase_ZeroOnDisable_Panic):
-    """PID_HTR007. Control HTR006 in order to set TS016"""
+    """PID_HTR007. Control HTR006 in order to set TS017"""
 
     # settable limits
     LIMITS = {  'target_setpoint': (0, 2200),
@@ -284,7 +284,7 @@ class PIDCtrl_HTR007(PIDControllerBase_ZeroOnDisable_Panic):
     # ctrl: the device to control directly
     # target: the device whose value should be approaching the setpoint
     EPICS_PV = {'ctrl':             'UCN2:ISO:HTR007:CUR', # write access
-                'target':           'UCN2:ISO:TS016:RDTEMPK',
+                'target':           'UCN2:ISO:TS017:RDTEMPK',
                 'htr_staton':       'UCN2:ISO:HTR007:STATON',
                 }
 
@@ -323,21 +323,21 @@ class PIDCtrl_HTR007(PIDControllerBase_ZeroOnDisable_Panic):
         super().__init__(client, 'PID_HTR007')
 
 class PIDCtrl_HTR008(PIDControllerBase_ZeroOnDisable_Panic):
-    """PID_HTR008. Control HTR008 in order to set TS223"""
+    """PID_HTR008. Control HTR008 in order to set TS224"""
 
     # settable limits
-    LIMITS = {  'target_setpoint': (0, 2200),
+    LIMITS = {  'target_setpoint': (0, 325),
                 'time_step_s': (0, 500),
                 'output_limit_low': (0, 2200),
                 'output_limit_high': (0, 2200),
-                'target_high_thresh': (0, 500),
+                'target_high_thresh': (0, 325),
                 }
 
     # devices/indicators from epics to monitor or write to
     # ctrl: the device to control directly
     # target: the device whose value should be approaching the setpoint
     EPICS_PV = {'ctrl':             'UCN2:ISO:HTR008:CUR', # write access
-                'target':           'UCN2:HE4:TS223:RDTEMPK',
+                'target':           'UCN2:HE4:TS224:RDTEMPK',
                 'htr_staton':       'UCN2:ISO:HTR008:STATON',
                 }
 
@@ -348,8 +348,8 @@ class PIDCtrl_HTR008(PIDControllerBase_ZeroOnDisable_Panic):
         ("I", 1),
         ("D", 0.0),
         ("inverted_output", False),
-        ("target_setpoint", 350),
-        ("target_high_thresh", 373),
+        ("target_setpoint", 300),
+        ("target_high_thresh", 325),
         ("time_step_s", 10),
         ("output_limit_low", 0),
         ("output_limit_high", 2200),
