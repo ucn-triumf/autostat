@@ -37,9 +37,6 @@ class EpicsDeviceCollection(dict):
                 '8': 'UCN2:VAC',
             }
 
-    # time between reset attempts if device timeout
-    reset_check_delay = 2
-
     def __init__(self, logfn=None, timeout=10, dry_run=False):
         self._devices = {}
         self.logfn = logfn
@@ -145,7 +142,10 @@ class EpicsDevice(object):
     other_suffixes = list()
 
     # sleep time after actuating or setting values in seconds
-    sleep_time = 0.25
+    sleep_time = 1
+
+    # time between reset attempts if device timeout
+    reset_check_delay = 2
 
     def __init__(self, devicepath, logfn=None, timeout=10, dry_run=False):
 
@@ -220,6 +220,11 @@ class EpicsDevice(object):
             suffix = 'DRVOFF'
             attr = 'is_on'
             state = 'off'
+
+        # early stop condition
+        if not getattr(self, attr):
+            self._log(f'{self.path} is already {state}', False)
+            return
 
         # switch with timeout
         t0 = time.time()
@@ -383,6 +388,11 @@ class EpicsAV(EpicsDevice):
             if 'open' in state: attr = 'is_closed'
             else:               attr = 'is_open'
 
+        # early stop condition
+        if not getattr(self, attr):
+            self._log(f'{self.path} is already {state}', False)
+            return
+
         # switch with timeout
         t0 = time.time()
         while getattr(self, attr):
@@ -430,11 +440,6 @@ class EpicsAVNormOpen(EpicsAV):
     def open(self):
         """synonym for on, but for valves"""
         self._switch(on=False)
-
-    @property
-    def is_closed(self):        return not self.is_open
-    @property
-    def is_open(self):          return self.is_on
 
 class EpicsCG(EpicsDevice):
     readback_name = 'RDVAC'
