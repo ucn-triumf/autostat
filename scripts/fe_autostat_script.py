@@ -41,7 +41,6 @@ class MyFrontend(midas.frontend.FrontendBase):
 
         # from he_purifier
         self.add_equipment(CryoScriptSequencer.CryoScriptSequencer(self.client))
-        self.add_equipment(he_purifier.CryoScriptTester(self.client, logger))
         self.add_equipment(he_purifier.StartCooling(self.client, logger))
         self.add_equipment(he_purifier.StopCooling(self.client, logger))
         # self.add_equipment(he_purifier.StartCirculation(self.client, logger))
@@ -52,7 +51,7 @@ class MyFrontend(midas.frontend.FrontendBase):
         self.add_equipment(he_purifier.StopRegeneration(self.client, logger))
 
         # test
-        self.add_equipment(he_purifier.CryoScriptTester(self.client, None))
+        # self.add_equipment(he_purifier.CryoScriptTester(self.client, None))
 
 
         self.client.msg("AutoStat Scripting frontend initialized.")
