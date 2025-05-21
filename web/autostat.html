@@ -14,9 +14,6 @@
             float: left;
             width: 50%;
         }
-        /* button {
-            width: 90%;
-        } */
     </style>
     <title>AutoStat</title>
     <script>
@@ -63,7 +60,7 @@
                     <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/temperature_K" data-odb-editable="1"></span> K.
                     Wait until T >
                     <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/temperature_K" data-odb-editable="0" data-formula="x/2"></span> K
-                    and FM208 > <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/fm208_thresh_slpm" data-odb-editable="0"></span> SL/min`],
+                    and FM208 > <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/fm208_thresh_slpm" data-odb-editable="1"></span> SL/min`],
                  ["StopRegeneration", `Wait until all four TS >
                      <span name="modbvalue" data-odb-path="/Equipment/StopRegeneration/Settings/temperature_thresh_K" data-odb-editable="1"></span> K,
                      and FM208 <
@@ -75,9 +72,9 @@
                 ]);
 
 
-            // set_script_table_section("Test",
-            //     [["CryoScriptTester", 'This test has parameter temperature of <span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/temperature_K" data-odb-editable="1"></span> K'],
-            //     ["CryoScriptTester", 'A second line, now with a string "<span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/test2" data-odb-editable="1"></span>" and a number: <span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/test" data-odb-editable="1"></span>']]);
+            set_script_table_section("Test",
+                [["CryoScriptTester", 'This test has parameter temperature of <span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/temperature_K" data-odb-editable="1"></span> K'],
+                ["CryoScriptTester", 'A second line, now with a string "<span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/test2" data-odb-editable="1"></span>" and a number: <span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/test" data-odb-editable="1"></span>']]);
 
             setup_script_queue();
         }
@@ -494,6 +491,19 @@
                     <tr><td colspan="5" style="text-align: center"> <b><div id="updateStatus"></b></td></tr>
                 </thead>
                 <tbody id="table_body"></tbody>
+                <tr>
+                    <th colspan="5" class="mtableheader">Notes</th>
+                </tr>
+                <tr>
+                    <td>Sensor Offsets</td>
+                    <td colspan="5">TS010 is 30-31 K offset from TS008
+                            <br>TS011 is 32-33 K offset from TS009
+                            <br>TS019 is 29-30 K offset from TS012
+                            <br>TS020 is 24-25 K offset from TS013
+                            <br>TS021 is 21-22 K offset from TS014
+                            <br>TS022 is 16-17 K offset from TS015
+                    </td>
+                </tr>
             </table>
 
             <!-- Scripts Table -->
