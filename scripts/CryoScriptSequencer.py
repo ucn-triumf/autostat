@@ -359,7 +359,6 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
             # start the script
             self.start_script(idx)
 
-        # TODO: test this
         # synchronize inputs
         elif '_inputs' in path:
 
@@ -386,9 +385,14 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
                         raise RuntimeError
 
                     # set the equipment parameter if its the currently running equipment
-                    if self.client.odb_get(f'/Equipment/{fnname}/Settings/Enabled'):
+                    # and the setpoint doesn't match
+                    enabled = self.client.odb_get(f'/Equipment/{fnname}/Settings/Enabled')
+                    setpoint = self.client.odb_get(f'/Equipment/{fnname}/Settings/{par}')
+
+                    if enabled and setpoint != value:
                         self.client.odb_set(f'/Equipment/{fnname}/Settings/{par}', value)
 
+                # if failure, revert the values
                 except Exception as err:
                     self.client.odb_set(f'{self.odb_settings_dir}/_inputs[{idx}]', self.inputs[idx])
                     return
