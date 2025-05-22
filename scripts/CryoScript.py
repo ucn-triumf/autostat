@@ -263,7 +263,7 @@ class CryoScript(midas.frontend.EquipmentBase):
 
             # if error, log then exit cleanly
             except Exception as err:
-                self.log(f'Exiting with error: {repr(err)}')
+                self.log(f'Exiting with error: {repr(err)}', is_error=True)
                 self.client.odb_set(f'{self.odb_settings_dir}/_exit_with_error', True)
 
                 # only show traceback if unexpected error type
