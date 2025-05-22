@@ -3,14 +3,15 @@
 # May 2025
 
 import midas, midas.client
-from EpicsDevice import EpicsDeviceCollection
+from EpicsDevice import EpicsDeviceCollection, EpicsError, EpicsInterlockError, EpicsTimeoutError
 import time
-
 import midas
 import midas.frontend
 import collections
 import traceback
 import numpy as np
+
+class CryoScriptError(Exception): pass
 
 class CryoScript(midas.frontend.EquipmentBase):
     """Queue and execute a sequence of cryostat control operations
@@ -76,7 +77,7 @@ class CryoScript(midas.frontend.EquipmentBase):
             if self.devices[name].is_off:
                 msg = f'{name} is off when it should be on'
                 if self.dry_run:    self.log(msg)
-                else:               raise RuntimeError(msg)
+                else:               raise CryoScriptError(msg)
 
             elif self.dry_run:
                 self.log(f'{name} is on, as it should')
@@ -86,7 +87,7 @@ class CryoScript(midas.frontend.EquipmentBase):
             if self.devices[name].is_on:
                 msg = f'{name} is on when it should be off'
                 if self.dry_run:    self.log(msg)
-                else:               raise RuntimeError(msg)
+                else:               raise CryoScriptError(msg)
 
             elif self.dry_run:
                 self.log(f'{name} is off, as it should')
@@ -96,7 +97,7 @@ class CryoScript(midas.frontend.EquipmentBase):
             if self.devices[name].is_open:
                 msg = f'{name} is open when it should be closed'
                 if self.dry_run:    self.log(msg)
-                else:               raise RuntimeError(msg)
+                else:               raise CryoScriptError(msg)
             elif self.dry_run:
                 self.log(f'{name} is closed, as it should')
 
@@ -105,7 +106,7 @@ class CryoScript(midas.frontend.EquipmentBase):
             if self.devices[name].is_closed:
                 msg = f'{name} is closed when it should be open'
                 if self.dry_run:    self.log(msg)
-                else:               raise RuntimeError(msg)
+                else:               raise CryoScriptError(msg)
             elif self.dry_run:
                 self.log(f'{name} is open, as it should')
 
@@ -115,7 +116,7 @@ class CryoScript(midas.frontend.EquipmentBase):
             if val > thresh:
                 msg = f'{name} is above threshold ({val:.3f} > {thresh:.3f})'
                 if self.dry_run:    self.log(msg)
-                else:               raise RuntimeError(msg)
+                else:               raise CryoScriptError(msg)
             elif self.dry_run:
                 self.log(f'{name} is below threshold ({val:.3f} < {thresh:.3f}), as it should')
 
@@ -125,7 +126,7 @@ class CryoScript(midas.frontend.EquipmentBase):
             if val < thresh:
                 msg = f'{name} is below threshold ({val:.3f} < {thresh:.3f})'
                 if self.dry_run:    self.log(msg)
-                else:               raise RuntimeError(msg)
+                else:               raise CryoScriptError(msg)
             elif self.dry_run:
                 self.log(f'{name} is above threshold ({val:.3f} > {thresh:.3f}), as it should')
 
@@ -262,9 +263,14 @@ class CryoScript(midas.frontend.EquipmentBase):
 
             # if error, log then exit cleanly
             except Exception as err:
-                self.log(f'Exiting with error: {str(err)}')
-                self.log(f'{traceback.format_exc()}')
+                self.log(f'Exiting with error: {repr(err)}')
                 self.client.odb_set(f'{self.odb_settings_dir}/_exit_with_error', True)
+
+                # only show traceback if unexpected error type
+                if not isinstance(err, (CryoScriptError, EpicsError,
+                                        EpicsInterlockError, EpicsTimeoutError,
+                                        TimeoutError)):
+                    self.log(f'{traceback.format_exc()}')
 
             # if no exceptions raised
             else:

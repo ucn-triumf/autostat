@@ -4,18 +4,15 @@
 
 import time
 import collections
-from CryoScript import CryoScript
+from CryoScript import CryoScript, CryoScriptError
 from collections.abc import Iterable
 
 # make scripts ------------------------------------------------------------
 class StartCooling(CryoScript):
     """Start cooling to target temperature"""
 
-    devices_closed = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV010',
-                   'AV011', 'AV012', 'AV013', 'AV014', 'AV015', 'AV016', 'AV017',
-                   'AV018', 'AV019', 'AV020', 'AV021', 'AV022', 'AV023', 'AV024',
-                   'AV025', 'AV026', 'AV027', 'AV028', 'AV029', 'AV030', 'AV031',
-                   'AV032', 'AV034', 'AV050', 'AV051']
+    devices_closed = ['AV019', 'AV020', 'AV021', 'AV022', 'AV024', 'AV025',
+                      'AV032', 'AV050', 'AV051']
 
     # default settings
     DEFAULT_SETTINGS = collections.OrderedDict([
@@ -56,13 +53,10 @@ class StartCooling(CryoScript):
 class StopCooling(CryoScript):
     """Pause execution until target temperature is reached"""
 
-    devices_closed = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV010',
-                      'AV011', 'AV012', 'AV013', 'AV014', 'AV015', 'AV016', 'AV017',
-                      'AV018', 'AV019', 'AV020', 'AV021', 'AV022', 'AV023', 'AV024',
-                      'AV025', 'AV026', 'AV027', 'AV028', 'AV029', 'AV030', 'AV031',
-                      'AV032', 'AV034', 'AV050', 'AV051']
+    devices_closed = ['AV019', 'AV020', 'AV021', 'AV022', 'AV024', 'AV025',
+                      'AV032', 'AV050', 'AV051']
     devices_off = ['BP001', 'BP002']
-    devices_on = ['HTR010', 'HTR012', 'HTR105', 'HTR107']
+    devices_on = ['HTR010', 'HTR012', 'HTR105', 'HTR107', 'CP101', 'CP001']
 
     # default settings
     DEFAULT_SETTINGS = collections.OrderedDict([
@@ -83,7 +77,7 @@ class StopCooling(CryoScript):
             if not self.get_odb(f'/Equipment/{pid}/Settings/Enabled'):
                 msg = f'{pid} is not enabled when it should be! Undefined system state, exiting.'
                 if self.dry_run:    self.log(msg)
-                else:               raise RuntimeError(msg)
+                else:               raise CryoScriptError(msg)
 
             elif self.dry_run:
                 self.log(f'{pid} is enabled')
@@ -96,7 +90,7 @@ class StopCooling(CryoScript):
             if setpoint != self.settings['temperature_K']:
                 msg = f'{pid} setpoint ({setpoint:.1f}K) is not as it should be! Undefined system state, exiting.'
                 if self.dry_run:    self.log(msg)
-                else:               raise RuntimeError(msg)
+                else:               raise CryoScriptError(msg)
             elif self.dry_run:
                 self.log(f'{pid} setpoint is {setpoint:.1f}K')
 
@@ -267,6 +261,9 @@ class StopCirculation(CryoScript):
                 self.devices.AV021.close()
                 self.devices.AV022.close()
                 self.devices.AV050.open()
+
+                # normal exit
+                self.run_state = None
                 break
 
             # check for overpressure
@@ -288,10 +285,10 @@ class StopCirculation(CryoScript):
                 msg = f'PT009 or PT001 out of bounds for {t1_overpressure-t0_overpressure:.1f} seconds! Exiting after circulating {volume:.0f} SL'
                 self.log(msg, True)
                 self.exit()
-                raise RuntimeError(msg)
+                raise CryoScriptError(msg)
 
             # check overpressure before MFC001
-            if self.devices.PT005.readback > 1200 or self.devices.MFC001.readback > self.devices.MFC001.setpoint:
+            if (self.devices.PT005.readback > 1200 or self.devices.MFC001.readback > self.devices.MFC001.setpoint) and self.devices.BP001.is_on:
                 self.devices.BP001.off()
 
             # flow rate in SL/s
@@ -329,10 +326,10 @@ class StartRecovery(CryoScript):
     """Start the isopure recovery process: pump out the pipes before regeneration"""
 
     devices_open = ['AV010', 'AV011', 'AV012', 'AV014', 'AV019', 'AV020',
-                    'AV024', 'AV025', 'AV027', 'AV029', ]
+                    'AV025', 'AV027', 'AV029', ]
 
-    devices_closed = ['AV026', 'AV023', 'AV030', 'AV028', 'AV009', 'AV032',
-                      'AV013', 'AV017', 'AV016', 'AV051']
+    devices_closed = ['AV030', 'AV028', 'AV009', 'AV032', 'AV013', 'AV017',
+                      'AV016', 'AV051']
 
     devices_off = ['BP002']
 
@@ -369,15 +366,14 @@ class StopRecovery(CryoScript):
     """Wait until pressure is low, isopure is pumped out. Then close AV024, AV025 and turn off BP001"""
 
     devices_open = ['AV008', 'AV010', 'AV011', 'AV012', 'AV014', 'AV019', 'AV020',
-                    'AV023', 'AV025', 'AV026', 'AV027', 'AV029', ]
+                    'AV023', 'AV026', 'AV027', 'AV029', ]
 
     devices_closed = ['AV007', 'AV009', 'AV013', 'AV015', 'AV016', 'AV017', 'AV018',
-                      'AV021', 'AV022', 'AV024', 'AV028', 'AV030', 'AV031',
-                      'AV032', 'AV034',]
+                      'AV021', 'AV022', 'AV028', 'AV030', 'AV031', 'AV032', 'AV034',]
 
     devices_off = ['BP002']
 
-    devices_on =  [ 'CP001', 'CP101', 'MP001', 'MP002', 'MFC001', 'HTR010', 'BP001',
+    devices_on =  [ 'CP001', 'CP101', 'MP001', 'MP002', 'MFC001', 'HTR010',
                     'HTR012', 'HTR105', 'HTR107']
 
     # default settings
@@ -410,9 +406,9 @@ class StartRegeneration(CryoScript):
                       'AV021', 'AV022', 'AV024', 'AV025', 'AV028', 'AV030',
                       'AV031', 'AV032', 'AV034',]
 
-    devices_off = ['BP001', 'BP002']
+    devices_off = ['BP001']
 
-    devices_on =  [ 'CP001', 'CP101', 'MP001', 'MP002', 'MFC001', 'HTR010',
+    devices_on =  ['MFC001', 'HTR010',
                     'HTR012', 'HTR105', 'HTR107']
 
     # default settings
@@ -449,7 +445,7 @@ class StartRegeneration(CryoScript):
                 if self.dry_run:
                     self.log(msg)
                 else:
-                    raise RuntimeError(msg)
+                    raise CryoScriptError(msg)
             elif self.dry_run:
                 self.log(f'{av} is closed as it should')
 
@@ -473,7 +469,7 @@ class StartRegeneration(CryoScript):
 
             # double check on status - if it fails no risk to system, but will be slow
             if self.devices[htr].is_off:
-                raise RuntimeError(f'{htr} is off!')
+                raise CryoScriptError(f'{htr} is off!')
 
         # enable autostat control
         for pid in ['PID_PUR_ISO70K', 'PID_PUR_ISO20K', 'PID_PUR_HE20K', 'PID_PUR_HE70K']:
@@ -514,14 +510,13 @@ class StartRegeneration(CryoScript):
 class StopRegeneration(CryoScript):
     """Wait until FM208 drops below threshold and the trap is at tempertaure then stop the regeneration processs"""
 
-    devices_closed = ['AV001', 'AV003', 'AV004', 'AV007', 'AV008', 'AV009', 'AV010',
-                      'AV011', 'AV012', 'AV013', 'AV014', 'AV015', 'AV016', 'AV017',
-                      'AV018', 'AV019', 'AV020', 'AV021', 'AV022', 'AV023', 'AV024',
-                      'AV025', 'AV026', 'AV027', 'AV028', 'AV029', 'AV030', 'AV031',
-                      'AV032']
-    devices_off = ['AV034', 'BP001']
+    devices_closed = ['AV024', 'AV025', 'AV032', 'AV022', 'AV021', 'AV020', 'AV019']
 
-    devices_on = ['HTR010', 'HTR012', 'HTR105', 'HTR107']
+    devices_open = ['AV051', 'AV050']
+
+    devices_off = ['BP001']
+
+    devices_on = ['BP002', 'HTR010', 'HTR012', 'HTR105', 'HTR107']
 
     # default settings
     DEFAULT_SETTINGS = collections.OrderedDict([

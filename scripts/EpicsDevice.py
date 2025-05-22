@@ -151,9 +151,9 @@ class EpicsDevice(object):
 
         # check inputs
         if not isinstance(devicepath, str):
-            raise RuntimeError(f'devicepath must be of type str')
+            raise EpicsError(f'devicepath must be of type str')
         if not isinstance(timeout, (float, int)):
-            raise RuntimeError(f'timeout must be of numerical type (int or float)')
+            raise EpicsError(f'timeout must be of numerical type (int or float)')
 
         # save inputs
         self.path = devicepath
@@ -303,7 +303,7 @@ class EpicsDevice(object):
         if self.setpoint_name is None:
             msg = f'{self.path} does not define a setpoint key'
             self._log(msg, True)
-            raise RuntimeError(msg)
+            raise EpicsError(msg)
 
         # run health check
         self.healthcheck()
@@ -313,7 +313,7 @@ class EpicsDevice(object):
            setpoint > self.pv[self.setpoint_name].upper_ctrl_limit:
             msg = f'Attempting to set a setpoint of {self.path} which is out of bounds. Attempted value: {setpoint}. Bounds: ({self.pv[self.setpoint_name].lower_ctrl_limit}, {self.pv[self.setpoint_name].upper_ctrl_limit})'
             self._log(msg, True)
-            raise RuntimeError(msg)
+            raise EpicsError(msg)
 
         t0 = time.time()
         while self.pv[self.setpoint_name].get() != setpoint:
