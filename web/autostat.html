@@ -12,7 +12,7 @@
     <style>
         table {
             float: left;
-            width: 50%;
+            table-layout: fixed;
         }
     </style>
     <title>AutoStat</title>
@@ -72,9 +72,8 @@
                 ]);
 
 
-            // set_script_table_section("Test",
-            //     [["CryoScriptTester", 'This test has parameter temperature of <span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/temperature_K" data-odb-editable="1"></span> K'],
-            //     ["CryoScriptTester", 'A second line, now with a string "<span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/test2" data-odb-editable="1"></span>" and a number: <span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/test" data-odb-editable="1"></span>']]);
+            set_script_table_section("Test",
+                [["CryoScriptTester", 'temperature of <span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/temperature_K" data-odb-editable="1"></span> K and a string: <span name="modbvalue" data-odb-path="/Equipment/CryoScriptTester/Settings/test2" data-odb-editable="1"></span>']]);
 
             setup_script_queue();
         }
@@ -154,6 +153,13 @@
                         inputs[i].disabled = false;
                     }
 
+                    // disable clear all if not running
+                    if(seq_enabled){
+                        document.getElementById('clearscript').disabled = true;
+                    } else {
+                        document.getElementById('clearscript').disabled = false;
+                    }
+
                 // fe not running
                 }else{
                     // set banner
@@ -172,10 +178,6 @@
 
                 // SEQUENCER is enabled or not -------------------------------
                 if(seq_enabled){
-                    // set color of banner
-                    document.getElementById('queue_header').style.background = "#65f7ae";
-                    document.getElementById('queue_header').style.color = "#000000";
-
                     // set start button text
                     document.getElementById("startscript").innerHTML = 'Stop';
                     let attr = document.getElementById("startscript").attributes.getNamedItem('data-odb-value');
@@ -183,10 +185,6 @@
                     document.getElementById("startscript").attributes.setNamedItem(attr);
 
                 } else {
-                    // set color of banner
-                    document.getElementById('queue_header').style.background = "#f58282";
-                    document.getElementById('queue_header').style.color = "#ffffff";
-
                     // set start button text
                     document.getElementById("startscript").innerHTML = 'Start';
                     let attr = document.getElementById("startscript").attributes.getNamedItem('data-odb-value');
@@ -196,9 +194,13 @@
 
                 // HIGHLIGHT CURRENTLY RUNNING -------------------------------
                 for(let i=0; i<seq_queuelen; i++){
-                    if(i === seq_idx && seq_enabled){
-                        document.getElementById(`queue_row${i}`).style.background = "#ffffb3";
-                        document.getElementById(`script_row_${seq_fnlist[i]}`).style.background = "#ffffb3";
+                    if(i === seq_idx){
+                        if(seq_enabled){
+                            document.getElementById(`queue_row${i}`).style.background = "#befdc0"; // green
+                            document.getElementById(`script_row_${seq_fnlist[i]}`).style.background = "#ffffb3"; // yellow
+                        } else {
+                            document.getElementById(`queue_row${i}`).style.background = "#ffb2b2"; // red
+                        }
                     } else {
                         document.getElementById(`queue_row${i}`).style.background = "";
                         document.getElementById(`script_row_${seq_fnlist[i]}`).style.background = "";
@@ -272,7 +274,7 @@
 
             // make header
             row = table.insertRow();
-            let columns = ["Script Name", "Inputs and Current Setpoints", "Queue"];
+            let columns = ["Script Name", "Current Values", "Queue"];
             let width = ["200px", "500px", "70px"];
             let colspan = [2,1,2];
 
@@ -333,7 +335,7 @@
 
             // more headers
             row = table.insertRow();
-            let columns = ["Script Name", "Inputs at Script Start", "Queue"];
+            let columns = ["Script Name", "Setpoints and Current Values", "Queue"];
             let colspan = [2,1,2];
             for(let i=0; i<columns.length; i++){
                 cell = row.insertCell();
@@ -510,7 +512,7 @@
             <table class="mtable">
                 <thead>
                     <tr style="height: 50px">
-                        <th colspan="5" class="mtableheader"><h1>Scripts</h1></th>
+                        <th colspan="5" class="mtableheader"><h1>Scripts [undergoing testing]</h1></th>
                     </tr>
                     <tr><td colspan="5" style="text-align: center" id="script_running"></td></tr>
                 </thead>
