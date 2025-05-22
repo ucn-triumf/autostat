@@ -1,10 +1,10 @@
 # Various MIDAS equipment which use PID loops to control devices
 # Derek Fujimoto
 # Mar 2025
-from PIDControllerBase import PIDControllerBase_ZeroOnDisable
+from PIDControllerBase import PIDControllerBase
 import collections
 
-class PIDCtrl_HTR105_TS510(PIDControllerBase_ZeroOnDisable):
+class PIDCtrl_HTR105_TS510(PIDControllerBase):
     """PID_PUR_HE70K. Control purifier HTR105 in order to set TS510"""
 
     # settable limits
@@ -53,10 +53,13 @@ class PIDCtrl_HTR105_TS510(PIDControllerBase_ZeroOnDisable):
     # the state of these devices should be on (boolean 1)
     DEVICE_STATE_ON = ['htr_staton']
 
+    # safe state for the control variable to be set to in the case of a problem. If none, ignore
+    CTRL_SAFE_VALUE = 0.0
+
     def __init__(self, client):
         super().__init__(client, 'PID_PUR_HE70K')
 
-class PIDCtrl_HTR010_TS512(PIDControllerBase_ZeroOnDisable):
+class PIDCtrl_HTR010_TS512(PIDControllerBase):
     """PID_PUR_ISO70K. Control purifier HTR010 in order to set TS512"""
 
     # settable limits
@@ -105,10 +108,13 @@ class PIDCtrl_HTR010_TS512(PIDControllerBase_ZeroOnDisable):
     # the state of these devices should be on (boolean 1)
     DEVICE_STATE_ON = ['htr_staton']
 
+    # safe state for the control variable to be set to in the case of a problem. If none, ignore
+    CTRL_SAFE_VALUE = 0.0
+
     def __init__(self, client):
         super().__init__(client, 'PID_PUR_ISO70K')
 
-class PIDCtrl_HTR107_TS511(PIDControllerBase_ZeroOnDisable):
+class PIDCtrl_HTR107_TS511(PIDControllerBase):
     """PID_PUR_HE20K. Control purifier HTR107 in order to set TS511"""
 
     # settable limits
@@ -157,10 +163,13 @@ class PIDCtrl_HTR107_TS511(PIDControllerBase_ZeroOnDisable):
     # the state of these devices should be on (boolean 1)
     DEVICE_STATE_ON = ['htr_staton']
 
+    # safe state for the control variable to be set to in the case of a problem. If none, ignore
+    CTRL_SAFE_VALUE = 0.0
+
     def __init__(self, client):
         super().__init__(client, 'PID_PUR_HE20K')
 
-class PIDCtrl_HTR012_TS513(PIDControllerBase_ZeroOnDisable):
+class PIDCtrl_HTR012_TS513(PIDControllerBase):
     """PID_PUR_ISO20K. Control purifier HTR012 in order to set TS513"""
 
     # settable limits
@@ -208,6 +217,9 @@ class PIDCtrl_HTR012_TS513(PIDControllerBase_ZeroOnDisable):
 
     # the state of these devices should be on (boolean 1)
     DEVICE_STATE_ON = ['htr_staton']
+
+    # safe state for the control variable to be set to in the case of a problem. If none, ignore
+    CTRL_SAFE_VALUE = 0.0
 
     def __init__(self, client):
         super().__init__(client, 'PID_PUR_ISO20K')

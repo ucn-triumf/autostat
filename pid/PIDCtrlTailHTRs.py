@@ -1,10 +1,10 @@
 # Various MIDAS equipment which use PID loops to control devices
 # Derek Fujimoto
 # Apr 2025
-from PIDControllerBase import PIDControllerBase_ZeroOnDisable_Panic
+from PIDControllerBase import PIDControllerBase_Panic
 import collections
 
-class PIDCtrl_HTR001(PIDControllerBase_ZeroOnDisable_Panic):
+class PIDCtrl_HTR001(PIDControllerBase_Panic):
     """PID_HTR001. Control HTR001 in order to set TS112"""
 
     # settable limits
@@ -57,7 +57,7 @@ class PIDCtrl_HTR001(PIDControllerBase_ZeroOnDisable_Panic):
     def __init__(self, client):
         super().__init__(client, 'PID_HTR001')
 
-class PIDCtrl_HTR003(PIDControllerBase_ZeroOnDisable_Panic):
+class PIDCtrl_HTR003(PIDControllerBase_Panic):
     """PID_HTR003. Control HTR003 in order to set TS019"""
 
     # settable limits
@@ -110,7 +110,7 @@ class PIDCtrl_HTR003(PIDControllerBase_ZeroOnDisable_Panic):
     def __init__(self, client):
         super().__init__(client, 'PID_HTR003')
 
-class PIDCtrl_HTR004(PIDControllerBase_ZeroOnDisable_Panic):
+class PIDCtrl_HTR004(PIDControllerBase_Panic):
     """PID_HTR004. Control HTR004 in order to set TS020"""
 
     # settable limits
@@ -163,7 +163,7 @@ class PIDCtrl_HTR004(PIDControllerBase_ZeroOnDisable_Panic):
     def __init__(self, client):
         super().__init__(client, 'PID_HTR004')
 
-class PIDCtrl_HTR005(PIDControllerBase_ZeroOnDisable_Panic):
+class PIDCtrl_HTR005(PIDControllerBase_Panic):
     """PID_HTR005. Control HTR005 in order to set TS021"""
 
     # settable limits
@@ -216,7 +216,7 @@ class PIDCtrl_HTR005(PIDControllerBase_ZeroOnDisable_Panic):
     def __init__(self, client):
         super().__init__(client, 'PID_HTR005')
 
-class PIDCtrl_HTR006(PIDControllerBase_ZeroOnDisable_Panic):
+class PIDCtrl_HTR006(PIDControllerBase_Panic):
     """PID_HTR006. Control HTR006 in order to set TS022"""
 
     # settable limits
@@ -269,7 +269,7 @@ class PIDCtrl_HTR006(PIDControllerBase_ZeroOnDisable_Panic):
     def __init__(self, client):
         super().__init__(client, 'PID_HTR006')
 
-class PIDCtrl_HTR007(PIDControllerBase_ZeroOnDisable_Panic):
+class PIDCtrl_HTR007(PIDControllerBase_Panic):
     """PID_HTR007. Control HTR006 in order to set TS017"""
 
     # settable limits
@@ -322,7 +322,7 @@ class PIDCtrl_HTR007(PIDControllerBase_ZeroOnDisable_Panic):
     def __init__(self, client):
         super().__init__(client, 'PID_HTR007')
 
-class PIDCtrl_HTR008(PIDControllerBase_ZeroOnDisable_Panic):
+class PIDCtrl_HTR008(PIDControllerBase_Panic):
     """PID_HTR008. Control HTR008 in order to set TS224"""
 
     # settable limits

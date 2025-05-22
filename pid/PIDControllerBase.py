@@ -71,6 +71,9 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
     # the state of these devices should be on (boolean 1)
     DEVICE_STATE_ON = []
 
+    # safe state for the control variable to be set to in the case of a problem. If none, ignore
+    CTRL_SAFE_VALUE = None
+
     def __init__(self, client, equip_name):
         # The name of our equipment. This name will be used on the midas status
         # page, and our info will appear in /Equipment/AutoPurify in
@@ -244,11 +247,49 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
 
         return state_ok
 
+    def check_target_timeout(self, t1, target_val):
+        """Check if the target variable is updating or not
+
+        Args:
+            t1 (float): time at which we are checking the target value
+            target_val (float): the target readback value
+        """
+
+        # target is updating, update saved values
+        if self.target_last != target_val:
+            self.target_last = target_val
+            self.t_target_last = t1
+
+        # target has not been updated past the timeout duration
+        elif (self.target_timeout_s > 0) and (t1-self.t_target_last > self.target_timeout_s):
+
+            # alert user
+            msg = f'"{self.EPICS_PV["target"]}" timeout! Value read back has been {target_val} for the last {int(t1 - self.t_target_last)} seconds'
+            self.client.trigger_internal_alarm('AutoStat', f'"{self.EPICS_PV["target"]}" timeout',
+                                               default_alarm_class='Warning')
+            self.client.msg(msg, is_error=True)
+
+            # disable execution
+            self.disable()
+
     def disable(self):
         """Set disable status in the event of program crash"""
+
+        # disable run loop
         self.client.odb_set(self.odb_settings_dir + '/Enabled', False)
         self.set_status("Ready, Disabled", status_color='yellowGreenLight')
         self.last_setpoint = np.nan
+
+        # set safe value to ctrl variable
+        if self.CTRL_SAFE_VALUE is not None:
+            self.pv['ctrl'].put(self.CTRL_SAFE_VALUE)
+            val = self.pv['ctrl'].get()
+
+            # ensure that value is set
+            while val != self.CTRL_SAFE_VALUE:
+                self.pv['ctrl'].put(self.CTRL_SAFE_VALUE)
+                time.sleep(1)
+                val = self.pv['ctrl'].get()
 
     @property
     def is_enabled(self):
@@ -309,19 +350,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
 
         # check if target is updating
         target_val = self.pv['target'].get()
-
-        # target is updating, update saved values
-        if self.target_last != target_val:
-            self.target_last = target_val
-            self.t_target_last = t1
-
-        # target has not been updated past the timeout duration
-        elif (self.target_timeout_s > 0) and (t1-self.t_target_last > self.target_timeout_s):
-            msg = f'"{self.EPICS_PV["target"]}" timeout! Value read back has been {target_val} for the last {t1 - self.t_target_last:.1f} seconds'
-            self.client.trigger_internal_alarm('AutoStat', f'"{self.EPICS_PV["target"]}" timeout',
-                                               default_alarm_class='Warning')
-            self.client.msg(msg)
-            self.disable()
+        self.check_target_timeout(t1, target_val)
 
         # new control value
         if t1-self.t0 >= self.time_step_s:
@@ -359,86 +388,20 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         self.time_step_s = self.get_limited_var('time_step_s')
         self.target_timeout_s = self.client.odb_get(f'{self.odb_settings_dir}/target_timeout_s')
 
-class PIDControllerBase_ZeroOnDisable(PIDControllerBase):
-    """Same as PIDControllerBase, but sets ctrl variable to zero upon self disable"""
-
-    def disable(self):
-        self.pv['ctrl'].put(0.0)
-        val = self.pv['ctrl'].get()
-
-        # ensure that zero is set
-        while val != 0.0:
-            self.pv['ctrl'].put(0.0)
-            time.sleep(1)
-            val = self.pv['ctrl'].get()
-
-        # finish disable
-        super().disable()
-
-    def readout_func(self):
-        """
-        For a periodic equipment, this function will be called periodically
-        (every 100ms in this case). It should return either a `cdms.event.Event`
-        or None (if we shouldn't write an event).
-        """
-
-        # don't run if not enabled
-        if not self.is_enabled:
-            return
-
-        # check that all devices are withing operating limits
-        if not self.check_device_states():
-            self.disable()
-            return
-
-        # check if setpoint changed significantly between calls
-        if not np.isnan(self.last_setpoint) and abs(self.pv['ctrl'].get() - self.last_setpoint) > 1:
-            msg = f'"{self.EPICS_PV["ctrl"]}" setpoint ({self.pv["ctrl"].get():.0f}) '+\
-                  f'does not match previously set value ({self.last_setpoint:.0f}) - disabling {self.name}'
-            self.client.trigger_internal_alarm('AutoStat', msg,
-                                               default_alarm_class='Warning')
-            self.disable()
-            return
-
-        # get time
-        t1 = time.time()
-
-        # check if target is updating
-        target_val = self.pv['target'].get()
-
-        # target is updating, update saved values
-        if self.target_last != target_val:
-            self.target_last = target_val
-            self.t_target_last = t1
-
-        # target has not been updated past the timeout duration
-        elif (self.target_timeout_s > 0) and (t1-self.t_target_last > self.target_timeout_s):
-            msg = f'"{self.EPICS_PV["target"]}" timeout! Value read back has been {target_val} for the last {t1 - self.t_target_last:.1f} seconds'
-            self.client.trigger_internal_alarm('AutoStat', f'"{self.EPICS_PV["target"]}" timeout',
-                                               default_alarm_class='Warning')
-            self.client.msg(msg)
-            self.disable()
-
-        # new control value
-        if t1-self.t0 >= self.time_step_s:
-
-            # apply control operation
-            val = self.pid(target_val)
-            self.pv['ctrl'].put(val)
-            self.t0 = t1
-
-            # new t0 and htr setpoint value to check against
-            self.t0 = t1
-            self.last_setpoint = val
-
-class PIDControllerBase_ZeroOnDisable_Panic(PIDControllerBase_ZeroOnDisable):
+class PIDControllerBase_Panic(PIDControllerBase):
     """Class which includes panic state and zeroing on disable, which includes during panic state"""
+
+    CTRL_SAFE_VALUE = 0.0
 
     def __init__(self, client, name):
         super().__init__(client, name)
         self.panic_thresh = self.get_limited_var('target_high_thresh')
         self.panic_state = False
         self.t_panic = 0 # time at which we have panicked and opened safety valve
+
+        # check safety value setting
+        if not isinstance(self.CTRL_SAFE_VALUE, (int, float)):
+            raise RuntimeError('CTRL_SAFE_VALUE must be an int or float')
 
     def detailed_settings_changed_func(self, path, idx, odb_value):
         """Add callback for target high threshold"""
@@ -481,19 +444,7 @@ class PIDControllerBase_ZeroOnDisable_Panic(PIDControllerBase_ZeroOnDisable):
 
         # check if target is updating
         target_val = self.pv['target'].get()
-
-        # target is updating, update saved values
-        if self.target_last != target_val:
-            self.target_last = target_val
-            self.t_target_last = t1
-
-        # target has not been updated past the timeout duration
-        elif (self.target_timeout_s > 0) and (t1-self.t_target_last > self.target_timeout_s):
-            msg = f'"{self.EPICS_PV["target"]}" timeout! Value read back has been {target_val} for the last {t1 - self.t_target_last:.1f} seconds'
-            self.client.trigger_internal_alarm('AutoStat', f'"{self.EPICS_PV["target"]}" timeout',
-                                               default_alarm_class='Warning')
-            self.client.msg(msg)
-            self.disable()
+        self.check_target_timeout(t1, target_val)
 
         # check if panic state
         if target_val > self.panic_thresh:
@@ -504,7 +455,7 @@ class PIDControllerBase_ZeroOnDisable_Panic(PIDControllerBase_ZeroOnDisable):
                 self.last_output = self.pv['ctrl'].get()
 
                 # set the panic state stop the control variable
-                self.pv['ctrl'].put(0.0)
+                self.pv['ctrl'].put(self.CTRL_SAFE_VALUE)
                 self.last_setpoint = np.nan
                 self.t_panic = time.time()
                 self.panic_state = True
