@@ -386,7 +386,7 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
 
                     # set the equipment parameter if its the currently running equipment
                     # and the setpoint doesn't match
-                    enabled = self.client.odb_get(f'/Equipment/{fnname}/Settings/Enabled')
+                    enabled = idx == self.settings['_current']
                     setpoint = self.client.odb_get(f'/Equipment/{fnname}/Settings/{par}')
 
                     if enabled and setpoint != value:
