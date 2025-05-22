@@ -21,7 +21,7 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
         ("dry_run", False),     # if true, don't log messages to MIDAS
         ("_functions", ['']*64),# list of function/equipment names
         ("_inputs", ['']*64),   # parametrs to pass to equipment
-        ("_current", -1),       # index of currently running equipment
+        ("_current", 0),       # index of currently running equipment
         ("_script_is_running", False), # is the script still in the middle of execution?
         ("_queue_length", 0),   # number of queued scripts
         ("_nloops", 0),         # number of loops of the queue remaining
@@ -360,7 +360,7 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
             self.start_script(idx)
 
         # synchronize inputs
-        elif '_inputs' in path:
+        elif '_inputs' in path and idx >= 0:
 
             fnname = self.settings['_functions'][idx]
             inputs = new_value
