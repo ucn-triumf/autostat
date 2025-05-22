@@ -49,6 +49,8 @@ class CryoScript(midas.frontend.EquipmentBase):
         ("_exit_with_error", False),    # if true, script exited unexpectedly
     ])
 
+    SEQ_PATH = '/Equipment/CryoScriptSequencer/Settings'
+
     def __init__(self, client, logger):
         default_common = midas.frontend.InitialEquipmentCommon()
         default_common.equip_type = midas.EQ_PERIODIC
@@ -244,6 +246,7 @@ class CryoScript(midas.frontend.EquipmentBase):
             * new_value (int/float/str etc) - The new ODB value (the single array
                 element if it's an array that changed)
         """
+
         # new device collection if timeout or dry_run changed
         if 'timeout' in path or 'dry_run' in path:
             self.devices = EpicsDeviceCollection(self.log,
@@ -286,7 +289,26 @@ class CryoScript(midas.frontend.EquipmentBase):
                 self.client.odb_set(f'{self.odb_settings_dir}/Enabled', False)
 
                 # let the sequencer know to start the next script in the queue
-                self.client.odb_set('/Equipment/CryoScriptSequencer/Settings/_script_is_running', False)
+                self.client.odb_set(f'{self.SEQ_PATH}/_script_is_running', False)
+
+        # update script sequencer inputs if the running script
+        elif path.split('/')[-1] in self.settings['_parnames'] and self.settings['Enabled']:
+
+            # get parameters and their values, make parameter string
+            parstr = []
+            parnames = self.settings['_parnames']
+            parnames = [parnames] if isinstance(parnames, str) else parnames
+            for parname in parnames:
+                val = self.settings[parname]
+                parstr.append(f'{parname}:{val}')
+            parstr = ','.join(parstr)
+
+            # check if the string is already set properly
+            current = self.client.odb_get(f'{self.SEQ_PATH}/_current')
+
+            parstr_now = self.client.odb_get(f'{self.SEQ_PATH}/_inputs[{current}]')
+            if parstr_now != parstr:
+                self.client.odb_set(f'{self.SEQ_PATH}/_inputs[{current}]', parstr)
 
     def wait(self, condition, printfn=None):
         """Pause execution until condition evaluates to True or Enabled is False
