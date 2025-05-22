@@ -8,7 +8,6 @@ from EpicsDevice import EpicsDeviceCollection
 import time, logging
 from logging.handlers import RotatingFileHandler
 import collections
-# TODO: test changing of variable mid-run
 
 class CryoScriptSequencer(midas.frontend.EquipmentBase):
     """Queue and execute a sequence of cryostat scripts"""
@@ -33,7 +32,7 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
         default_common.buffer_name = "SYSTEM"
         default_common.trigger_mask = 0
         default_common.event_id = 2323
-        default_common.period_ms = 5000
+        default_common.period_ms = 1000
         default_common.read_when = midas.RO_ALWAYS
         default_common.log_history = 5
 

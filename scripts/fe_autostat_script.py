@@ -51,7 +51,7 @@ class MyFrontend(midas.frontend.FrontendBase):
         self.add_equipment(he_purifier.StopRegeneration(self.client, logger))
 
         # test
-        # self.add_equipment(he_purifier.CryoScriptTester(self.client, None))
+        # self.add_equipment(he_purifier.CryoScriptTester(self.client, logger))
 
 
         self.client.msg("AutoStat Scripting frontend initialized.")
@@ -75,11 +75,6 @@ class MyFrontend(midas.frontend.FrontendBase):
             my_fe.run()
         ```
         """
-
-        # clean exit from each equipment
-        # for equip in self.equipment.values():
-        #     equip.exit()
-
         self.client.msg("AutoStat Scripting frontend stopped.")
 
 if __name__ == "__main__":
