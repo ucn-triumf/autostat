@@ -41,6 +41,7 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
         midas.frontend.EquipmentBase.__init__(self, client, 'CryoScriptSequencer', default_common, self.DEFAULT_SETTINGS)
 
         self.client.register_jrpc_callback(self.rpc_handler, True)
+        self.inputs = self.settings['_inputs']
 
     def exit(self):
 
@@ -360,24 +361,37 @@ class CryoScriptSequencer(midas.frontend.EquipmentBase):
 
         # TODO: test this
         # synchronize inputs
-        # elif '_inputs' in path:
-        #     fnname = self.settings['_functions'][idx]
-        #     inputs = new_value
+        elif '_inputs' in path:
 
-        #     # set the equipment parameter if its the currently running equipment
-        #     if self.client.odb_get(f'/Equipment/{fnname}/Settings/Enabled'):
+            fnname = self.settings['_functions'][idx]
+            inputs = new_value
 
-        #         # iterate parameters in param string
-        #         for parname in inputs.split(','):
+            # iterate parameters in param string
+            for parname in inputs.split(','):
 
-                    # par, value = parname.strip().split(':')
-                    # par = par.strip()
+                # if setting doesn't work, revert the changes
+                try:
+                    # split the parameter into value and key, skip if error
+                    par, value = parname.strip().split(':')
+                    par = par.strip()
 
-                    # # convert to numerical, if possible
-                    # try:
-                    #     value = float(value)
-                    # except ValueError:
-                    #     pass
+                    # convert to numerical, if possible
+                    try:
+                        value = float(value)
+                    except ValueError:
+                        pass
 
-                    # # set the value
-                    # self.client.odb_set(f'/Equipment/{fnname}/Settings/{par}', value)
+                    # check that the parameter is real
+                    if par not in self.client.odb_get(f'/Equipment/{fnname}/Settings/_parnames'):
+                        raise RuntimeError
+
+                    # set the equipment parameter if its the currently running equipment
+                    if self.client.odb_get(f'/Equipment/{fnname}/Settings/Enabled'):
+                        self.client.odb_set(f'/Equipment/{fnname}/Settings/{par}', value)
+
+                except Exception as err:
+                    self.client.odb_set(f'{self.odb_settings_dir}/_inputs[{idx}]', self.inputs[idx])
+                    return
+
+            # copy the inputs
+            self.inputs = self.settings['_inputs']
