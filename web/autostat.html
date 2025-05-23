@@ -381,6 +381,9 @@
 
         function gen_script_queue(){
 
+            // get scroll position
+            var scroll_position = document.documentElement.scrollTop;
+
             // clear the old table
             var table_old = document.getElementById("queued_scripts");
             var table = document.createElement('tbody');
@@ -439,6 +442,8 @@
                         fn_list_old.push(names[i]);
                     }
 
+                    // move the window so it's not annoyingly moving on its own
+                    window.scrollTo(0, scroll_position);
                 }
             }).catch(function(error) {
                 if (error.request) {
