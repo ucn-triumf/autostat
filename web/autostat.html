@@ -92,6 +92,7 @@
         }
 
         var gStatusInflight = false;
+        var fn_list_old = [];
         function update_runstate(){
 
             // don't make another request if the last request is still outstanding.
@@ -205,20 +206,31 @@
                     document.getElementById("startscript").attributes.setNamedItem(attr);
                 }
 
-                // HIGHLIGHT CURRENTLY RUNNING -------------------------------
-                for(let i=0; i<seq_queuelen; i++){
-                    if(i === seq_idx){
-                        if(seq_enabled){
-                            document.getElementById(`queue_row${i}`).style.background = "#befdc0"; // green
-                            document.getElementById(`script_row_${seq_fnlist[i]}`).style.background = "#befdc0"; // yellow
-                        } else {
-                            document.getElementById(`queue_row${i}`).style.background = "#ffb2b2"; // red
-                        }
-                    } else {
-                        document.getElementById(`queue_row${i}`).style.background = "";
-                        document.getElementById(`script_row_${seq_fnlist[i]}`).style.background = "";
+                // UPDATE QUEUE ----------------------------------------------
+                for(let i=0; i<seq_fnlist.length; i++){
+                    if(fn_list_old[i] != seq_fnlist[i]){
+                        gen_script_queue();
+                        break;
                     }
                 }
+
+                // HIGHLIGHT CURRENTLY RUNNING -------------------------------
+                // try/catch in case the queue is empty
+                try{
+                    for(let i=0; i<seq_queuelen; i++){
+                        if(i === seq_idx){
+                            if(seq_enabled){
+                                document.getElementById(`queue_row${i}`).style.background = "#befdc0"; // green
+                                document.getElementById(`script_row_${seq_fnlist[i]}`).style.background = "#befdc0"; // yellow
+                            } else {
+                                document.getElementById(`queue_row${i}`).style.background = "#ffb2b2"; // red
+                            }
+                        } else {
+                            document.getElementById(`queue_row${i}`).style.background = "";
+                            document.getElementById(`script_row_${seq_fnlist[i]}`).style.background = "";
+                        }
+                    }
+                } catch(error) {}
 
                 gStatusInflight = false; // finished async routine
             }).catch(function(error) {
@@ -226,7 +238,7 @@
                     var s = mjsonrpc_decode_error(error);
                     console.log("mjsonrpc_error_alert: " + s);
                 } else {
-                    console.log("mjsonroc_error_alert: " + error);
+                    console.log("mjsonroc_error_alert: " + error + ' ' + error.message);
                 }
             });
         }
@@ -382,7 +394,7 @@
                 let queue_len = rpc.result.data[0];
                 let names = rpc.result.data[1];
 
-                // queue
+                // make queue
                 for(let i=0; i<queue_len; i++){
                     row = table.insertRow();
                     row.id = `queue_row${i}`;
@@ -420,6 +432,13 @@
                                 id="rmscript${i}"
                                 onclick="queue_edit('remove', '${i}')">×</button>
                         </td>`;
+
+                    // update queue old variable to track changes
+                    fn_list_old = [];
+                    for(let i=0; i<names.length; i++){
+                        fn_list_old.push(names[i]);
+                    }
+
                 }
             }).catch(function(error) {
                 if (error.request) {
@@ -507,7 +526,7 @@
         <div class="column">
             <table class="mtable">
                 <thead>
-                    <tr style="height: 50px">
+                    <tr style="height: 30px">
                         <th colspan="5" class="mtableheader"><h1>PID Control Loops</h1></th>
                     </tr>
                     <tr><td colspan="5" style="text-align: center"> <b><div id="updateStatus"></b></td></tr>
@@ -518,7 +537,7 @@
                 </tr>
                 <tr>
                     <td>Sensor Offsets</td>
-                    <td colspan="5">TS010 is 30-31 K offset from TS008
+                    <td colspan="4">TS010 is 30-31 K offset from TS008
                             <br>TS011 is 32-33 K offset from TS009
                             <br>TS019 is 29-30 K offset from TS012
                             <br>TS020 is 24-25 K offset from TS013
@@ -533,7 +552,7 @@
         <div class="column">
             <table class="mtable">
                 <thead>
-                    <tr style="height: 50px">
+                    <tr style="height: 30px">
                         <th colspan="5" class="mtableheader"><h1>Scripts</h1></th>
                     </tr>
                     <tr><td colspan="5" style="text-align: center" id="script_running"></td></tr>
