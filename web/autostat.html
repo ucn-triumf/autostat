@@ -10,9 +10,22 @@
     <script src="mhttpd.js"></script>
 
     <style>
-        table {
+        /* Two column layout  */
+        .column {
             float: left;
-            table-layout: fixed;
+            width: 50%;
+        }
+
+        /* table takes up entire column */
+        table {
+            width: 100%;
+        }
+
+        /* Go to one column layout if screen is too small */
+        @media only screen and (max-width: 1000px) {
+            .column {
+                width: 100%;
+            }
         }
     </style>
     <title>AutoStat</title>
@@ -273,17 +286,17 @@
             cell.outerHTML = `<th colspan="5" class="mtableheader">${section}</th>`;
 
             // make header
-            row = table.insertRow();
-            let columns = ["Script Name", "Current Values", "Queue"];
-            let width = ["200px", "500px", "70px"];
-            let colspan = [2,1,2];
+            // row = table.insertRow();
+            // let columns = ["Script Name", "Current Values", "Queue"];
+            // let width = ["200px", "500px", "70px"];
+            // let colspan = [2,1,2];
 
-            for(let i=0; i<columns.length; i++){
-                let cell = row.insertCell();
-                cell.innerHTML = `<b>${columns[i]}</b>`;
-                cell.style = `width: ${width[i]}; text-align: center;`;
-                cell.colSpan = colspan[i];
-            }
+            // for(let i=0; i<columns.length; i++){
+            //     let cell = row.insertCell();
+            //     cell.innerHTML = `<b>${columns[i]}</b>`;
+            //     cell.style = `width: ${width[i]}; text-align: center;`;
+            //     cell.colSpan = colspan[i];
+            // }
 
             // make cells
             for(let i=0; i<equipments.length; i++){
@@ -298,8 +311,11 @@
                 cell.innerHTML = `<a href="/Equipment/${equip}/Settings"><div id=${equip}_title>${equip}</div></a>`;
                 cell.colSpan = 2;
 
-                row.insertCell().innerHTML = desc;
-                row.insertCell().outerHTML = `<td align="center" colspan="5"><button class="ScriptInput" id="add_${equip}" style="width: 90%" onclick="queue_edit('add', '${equip}')">Add</button></td>`;
+                cell = row.insertCell();
+                cell.innerHTML = desc;
+
+                cell = row.insertCell();
+                cell.outerHTML = `<td align="center" colspan="5"><button class="ScriptInput" id="add_${equip}" style="width: 90%" onclick="queue_edit('add', '${equip}')">Add</button></td>`;
             }
         }
 
@@ -487,8 +503,8 @@
     <div id="msidenav"></div>
     <div id="mmain">
     <div id="full_div">
-        <section>
-            <!-- PID Table -->
+        <!-- PID Table -->
+        <div class="column">
             <table class="mtable">
                 <thead>
                     <tr style="height: 50px">
@@ -511,8 +527,10 @@
                     </td>
                 </tr>
             </table>
+        </div>
 
-            <!-- Scripts Table -->
+        <!-- Scripts Table -->
+        <div class="column">
             <table class="mtable">
                 <thead>
                     <tr style="height: 50px">
@@ -522,8 +540,12 @@
                 </thead>
                 <tbody id="scripts_body"></tbody>
                 <tbody id="queued_scripts"></tbody>
+                <tbody>
+                    <tr><th colspan="5" class="mtableheader">Notes</th></tr>
+                    <tr><td colspan="5" >These scripts still use BP001 during purification. Don't run if BP001 is disconnected or moved.</td></tr>
+                </tbody>
             </table>
-        </section>
+        </div>
     </div>
 </body>
 </html>
