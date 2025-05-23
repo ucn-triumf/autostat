@@ -49,26 +49,26 @@
                     <span name="modbvalue" data-odb-path="/Equipment/StopCirculation/Settings/MFC001_SL" data-odb-editable="1"></span> SL,
                     ignoring rates <
                     <span name="modbvalue" data-odb-path="/Equipment/StopCirculation/Settings/MFC001_bkgd_SLPM" data-odb-editable="1"></span> SL/min.
-                    Watch for overpressure and clogging.`],
+                    Protects against overpressure and clogging.`],
                  ["StartRecovery", `Close circulation path and set heater PID =
                     <span name="modbvalue" data-odb-path="/Equipment/StartRecovery/Settings/temperature_K" data-odb-editable="1"></span> K. `],
                  ["StopRecovery", `When PT004 and PT005 are both <
-                    <span name="modbvalue" data-odb-path="/Equipment/StopRecovery/Settings/press_thresh_mbar" data-odb-editable="1"></span> mbar, turn off BP001 and close AV024 and AV025`],
+                    <span name="modbvalue" data-odb-path="/Equipment/StopRecovery/Settings/press_thresh_mbar" data-odb-editable="1"></span> mbar, turn off BP001 and close AV024 and AV025.`],
                  ["StartRegeneration", `CPs off, BP002 on, then wait until CG003 ≤
                     <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/cg003_thresh" data-odb-editable="1"></span> mbar.
-                    Turn off MPs and close recovery path. Open AV050 and AV051, set heater PID setpoints to
+                    Turn off MPs and close recovery path. Open AV050 and AV051, set heater PID =
                     <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/temperature_K" data-odb-editable="1"></span> K.
                     Wait until T >
                     <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/temperature_K" data-odb-editable="0" data-formula="x/2"></span> K
-                    and FM208 > <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/fm208_thresh_slpm" data-odb-editable="1"></span> SL/min`],
-                 ["StopRegeneration", `Wait until all four TS >
-                     <span name="modbvalue" data-odb-path="/Equipment/StopRegeneration/Settings/temperature_thresh_K" data-odb-editable="1"></span> K,
+                    or FM208 > <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/fm208_thresh_slpm" data-odb-editable="1"></span> SL/min.`],
+                 ["StopRegeneration", `Wait until all four TS ≥
+                     <span name="modbvalue" data-odb-path="/Equipment/StopRegeneration/Settings/temperature_K" data-odb-editable="1"></span> K,
                      and FM208 <
-                     <span name="modbvalue" data-odb-path="/Equipment/StopRegeneration/Settings/fm208_thresh_slpm" data-odb-editable="1"></span> SLPM, then close AV050, AV051, turn off BP001`],
+                     <span name="modbvalue" data-odb-path="/Equipment/StopRegeneration/Settings/fm208_thresh_slpm" data-odb-editable="1"></span> SLPM, then close AV050, AV051, turn off BP002, and turn off heaters.`],
                  ["StartCooling", `CPs on, and heater PID setpoints =
-                    <span name="modbvalue" data-odb-path="/Equipment/StartCooling/Settings/temperature_K" data-odb-editable="1"></span> K`],
-                 ["StopCooling", `Pause until T <
-                     <span name="modbvalue" data-odb-path="/Equipment/StopCooling/Settings/temperature_K" data-odb-editable="1"></span> K`],
+                    <span name="modbvalue" data-odb-path="/Equipment/StartCooling/Settings/temperature_K" data-odb-editable="1"></span> K.`],
+                 ["StopCooling", `Wait until T <
+                     <span name="modbvalue" data-odb-path="/Equipment/StopCooling/Settings/temperature_K" data-odb-editable="1"></span> K.`],
                 ]);
 
 
@@ -199,7 +199,7 @@
                             document.getElementById(`queue_row${i}`).style.background = "#befdc0"; // green
                             document.getElementById(`script_row_${seq_fnlist[i]}`).style.background = "#befdc0"; // yellow
                         } else {
-                            document.getElementById(`queue_row${i}`).style.background = "#ffffb3"; // yellow
+                            document.getElementById(`queue_row${i}`).style.background = "#ffb2b2"; // red
                         }
                     } else {
                         document.getElementById(`queue_row${i}`).style.background = "";
@@ -324,7 +324,11 @@
                         onclick="update_runstate()">Start</button>
                 </td>`;
             cell = row.insertCell();
-            cell.innerHTML = 'At end, run queue <span name="modbvalue" data-odb-path="/Equipment/CryoScriptSequencer/Settings/_nloops" data-odb-editable="1"></span> more times<br>On start, run queue from index <span name="modbvalue" data-odb-path="/Equipment/CryoScriptSequencer/Settings/_current" data-odb-editable="1"></span>';
+            cell.innerHTML = `On start, run queue from index
+                <span name="modbvalue" data-odb-path="/Equipment/CryoScriptSequencer/Settings/_current" data-odb-editable="1"></span>.
+                <br>
+                At end, run queue
+                <span name="modbvalue" data-odb-path="/Equipment/CryoScriptSequencer/Settings/_nloops" data-odb-editable="1"></span> more times.`;
             cell = row.insertCell();
             cell.outerHTML = `<td align="center" colspan="5" >
                 <button class="ScriptInput"

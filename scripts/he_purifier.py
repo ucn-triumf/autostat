@@ -243,8 +243,7 @@ class StopCirculation(CryoScript):
         AV020 = self.devices.AV020
         AV021 = self.devices.AV021
 
-        # inputs
-        volume_SL = self.settings['MFC001_SL']
+        # run state for exit strategy
         self.run_state = 'circulating'
 
         # calculate volume circuated from readback of MFC001, pause execution until exceeded
@@ -253,7 +252,7 @@ class StopCirculation(CryoScript):
         t0_print = time.time()
         t0_overpressure = time.time()
         last_updated = 0
-        while volume < self.settings['MFC001_SL'] and volume_SL > 0:
+        while volume < self.settings['MFC001_SL'] and self.settings['MFC001_SL'] > 0:
 
             # check for clogs - if true, end early
             if MFC001.setpoint > 30 and MFC001.readback < 5 and PT005.readback < 200 and not self.dry_run:
@@ -524,19 +523,19 @@ class StopRegeneration(CryoScript):
         ('dry_run', False),
         ("timeout_s", 10),
         ('wait_print_delay_s', 900),
-        ('temperature_thresh_K', 180),
+        ('temperature_K', 180),
         ('fm208_thresh_slpm', 0.25),
         ("_exit_with_error", False),    # if true, script exited unexpectedly
-        ("_parnames", ["temperature_thresh_K", "fm208_thresh_slpm"]),
+        ("_parnames", ["temperature_K", "fm208_thresh_slpm"]),
     ])
 
     def run(self):
 
         # block until at temperature
-        self.wait_until_greaterthan('TS512', lambda : self.settings['temperature_thresh_K']-0.1)
-        self.wait_until_greaterthan('TS510', lambda : self.settings['temperature_thresh_K']-0.1)
-        self.wait_until_greaterthan('TS511', lambda : self.settings['temperature_thresh_K']-0.1)
-        self.wait_until_greaterthan('TS513', lambda : self.settings['temperature_thresh_K']-0.1)
+        self.wait_until_greaterthan('TS512', lambda : self.settings['temperature_K']-0.1)
+        self.wait_until_greaterthan('TS510', lambda : self.settings['temperature_K']-0.1)
+        self.wait_until_greaterthan('TS511', lambda : self.settings['temperature_K']-0.1)
+        self.wait_until_greaterthan('TS513', lambda : self.settings['temperature_K']-0.1)
 
         # block until FM208 is below threshold
         self.wait_until_lessthan('FM208', lambda : self.settings['fm208_thresh_slpm'])
