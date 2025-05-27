@@ -66,7 +66,7 @@
                  ["StartRecovery", `Close circulation path and set heater PID =
                     <span name="modbvalue" data-odb-path="/Equipment/StartRecovery/Settings/temperature_K" data-odb-editable="1"></span> K. `],
                  ["StopRecovery", `When PT004 and PT005 are both <
-                    <span name="modbvalue" data-odb-path="/Equipment/StopRecovery/Settings/press_thresh_mbar" data-odb-editable="1"></span> mbar, turn off BP001 and close AV024 and AV025.`],
+                    <span name="modbvalue" data-odb-path="/Equipment/StopRecovery/Settings/press_thresh_mbar" data-odb-editable="1"></span> mbar, close AV024 and AV025.`],
                  ["StartRegeneration", `CPs off, BP002 on, then wait until CG003 ≤
                     <span name="modbvalue" data-odb-path="/Equipment/StartRegeneration/Settings/cg003_thresh" data-odb-editable="1"></span> mbar.
                     Turn off MPs and close recovery path. Open AV050 and AV051, set heater PID =
@@ -566,7 +566,7 @@
                 <tbody id="queued_scripts"></tbody>
                 <tbody>
                     <tr><th colspan="5" class="mtableheader">Notes</th></tr>
-                    <tr><td colspan="5" >These scripts still use BP001 during purification. Don't run if BP001 is disconnected or moved.</td></tr>
+                    <tr><td colspan="5" >These scripts no longer try to use BP001 during purification. They are safe to run.</td></tr>
                 </tbody>
             </table>
         </div>

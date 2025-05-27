@@ -55,7 +55,7 @@ class StopCooling(CryoScript):
 
     devices_closed = ['AV019', 'AV020', 'AV021', 'AV022', 'AV024', 'AV025',
                       'AV032', 'AV050', 'AV051']
-    devices_off = ['BP001', 'BP002']
+    devices_off = ['BP002'] # 'BP001'
     devices_on = ['HTR010', 'HTR012', 'HTR105', 'HTR107', 'CP101', 'CP001']
 
     # default settings
@@ -108,7 +108,7 @@ class StartCirculation(CryoScript):
                       'AV025', 'AV026', 'AV027', 'AV028', 'AV029', 'AV030', 'AV031',
                       'AV032', 'AV034', 'AV050', 'AV051', ]
 
-    devices_off = ['BP001', 'BP002']
+    devices_off = ['BP002'] # 'BP001', 
 
     devices_below = {'TS510': 100,
                      'TS511': 100,
@@ -167,7 +167,7 @@ class StartCirculation(CryoScript):
         self.log(f'MFC001 reads {self.devices["MFC001"].readback} {self.devices["MFC001"].readback_units} after initial open and setpoint {self.devices["MFC001"].setpoint} {self.devices["MFC001"].setpoint_units}')
 
         # start BP001
-        self.devices.BP001.on()
+        # self.devices.BP001.on()
 
         # open MFC001
         self.devices.MFC001.set(mfc001_setpt)
@@ -205,8 +205,8 @@ class StopCirculation(CryoScript):
     devices_closed=['AV026', 'AV023', 'AV030', 'AV028', 'AV009', 'AV032',
                     'AV013', 'AV017', 'AV016', 'AV050', 'AV051']
 
-    devices_on = ['MP001', 'MP002', 'MFC001', 'CP001', 'CP101', 'BP001',
-                  'HTR010', 'HTR012', 'HTR105', 'HTR107', ]
+    devices_on = ['MP001', 'MP002', 'MFC001', 'CP001', 'CP101',
+                  'HTR010', 'HTR012', 'HTR105', 'HTR107', ] # 'BP001'
     devices_off = ['BP002']
 
     # default settings
@@ -231,7 +231,7 @@ class StopCirculation(CryoScript):
             self.devices.AV021.close()
             self.devices.MP001.off()
             self.devices.MP002.off()
-            self.devices.BP001.off()
+            # self.devices.BP001.off()
             self.devices.AV014.close()
 
     def run(self):
@@ -287,8 +287,8 @@ class StopCirculation(CryoScript):
                 raise CryoScriptError(msg)
 
             # check overpressure before MFC001
-            if (self.devices.PT005.readback > 1200 or self.devices.MFC001.readback > self.devices.MFC001.setpoint) and self.devices.BP001.is_on:
-                self.devices.BP001.off()
+            # if (self.devices.PT005.readback > 1200 or self.devices.MFC001.readback > self.devices.MFC001.setpoint) and self.devices.BP001.is_on:
+                # self.devices.BP001.off()
 
             # flow rate in SL/s
             rate = MFC001.readback / 60
@@ -391,7 +391,7 @@ class StopRecovery(CryoScript):
         self.wait_until_lessthan('PT004', lambda : self.settings['press_thresh_mbar'])
         self.wait_until_lessthan('PT005', lambda : self.settings['press_thresh_mbar'])
 
-        self.devices.BP001.off()
+        # self.devices.BP001.off()
         self.devices.AV024.close()
         self.devices.AV025.close()
 
@@ -405,7 +405,7 @@ class StartRegeneration(CryoScript):
                       'AV021', 'AV022', 'AV024', 'AV025', 'AV028', 'AV030',
                       'AV031', 'AV032', 'AV034',]
 
-    devices_off = ['BP001']
+    # devices_off = ['BP001']
 
     devices_on =  ['MFC001', 'HTR010',
                     'HTR012', 'HTR105', 'HTR107']
@@ -513,7 +513,7 @@ class StopRegeneration(CryoScript):
 
     devices_open = ['AV051', 'AV050']
 
-    devices_off = ['BP001']
+    # devices_off = ['BP001']
 
     devices_on = ['BP002', 'HTR010', 'HTR012', 'HTR105', 'HTR107']
 
