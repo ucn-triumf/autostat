@@ -87,6 +87,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         default_common.period_ms = 1000
         default_common.read_when = midas.RO_ALWAYS
         default_common.log_history = 5
+        default_common.hidden = True
 
         # You MUST call midas.frontend.EquipmentBase.__init__ in your equipment's __init__ method!
         midas.frontend.EquipmentBase.__init__(self, client, equip_name, default_common, self.DEFAULT_SETTINGS)
@@ -103,6 +104,10 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
         # setup checking readback functionality
         self.t_target_last = time.time()     # time of last change
         self.target_last = self.pv['target'].get() # value of last target readback
+
+        # set PV names
+        self.client.odb_set(f'{self.odb_settings_dir}/control_pv', self.EPICS_PV['ctrl'])
+        self.client.odb_set(f'{self.odb_settings_dir}/target_pv', self.EPICS_PV['target'])
 
         # You can set the status of the equipment (appears in the midas status page)
         if self.is_enabled:

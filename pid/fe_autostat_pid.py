@@ -19,6 +19,7 @@ class MyFrontend(midas.frontend.FrontendBase):
         self.add_equipment(PIDCtrlEquipment.PIDCtrl_FPV207_TS508(self.client))
         self.add_equipment(PIDCtrlEquipment.PIDCtrl_FPV209_TS351(self.client))
         self.add_equipment(PIDCtrlEquipment.PIDCtrl_FPV212_TS245(self.client))
+        self.add_equipment(PIDCtrlEquipment.PIDCtrl_NV101_FM101(self.client))
 
         # from PIDCtrlPurifier
         self.add_equipment(PIDCtrlPurifier.PIDCtrl_HTR105_TS510(self.client))
