@@ -131,10 +131,13 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
                                 f'limits={self.pid.output_limits}',
                                 f'proportional_on_measurement={self.pid.proportional_on_measurement}',
                                 f'differential_on_measurement={self.pid.differential_on_measurement}',
-                                f'last_setpoint={self.last_setpoint}',
                                 f'time_step_s={self.time_step_s}',
                                 f'inverted={self.inverted == -1}',
                                 ]
+                                
+                # reset last setpoint
+                self.last_setpoint = np.nan
+                                
                 self.client.msg(f'{self.name} has been enabled with settings: '+', '.join(settings_list))
             else:
                 self.set_status("Ready, Disabled", status_color='yellowGreenLight')

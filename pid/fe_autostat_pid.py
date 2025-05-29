@@ -3,6 +3,7 @@ import midas.frontend
 import PIDCtrlEquipment
 import PIDCtrlPurifier
 import PIDCtrlTailHTRs
+import traceback
 
 class MyFrontend(midas.frontend.FrontendBase):
     """
@@ -48,5 +49,19 @@ class MyFrontend(midas.frontend.FrontendBase):
 if __name__ == "__main__":
     # The main executable is very simple - just create the frontend object,
     # and call run() on it.
-    with MyFrontend() as my_fe:
+    
+    try:
+        my_fe = MyFrontend()
         my_fe.run()
+        
+    except Exception as err:
+        self.client.msg(err, True)
+        self.client.msg(traceback.format_exc(), True)
+        self.client.trigger_internal_alarm('AutoStat', 'Autostat pid frontend crashed with error!',
+                                           default_alarm_class='Warning')
+    finally:
+        self.frontend_exit()
+        self.client.disconnect()
+               
+    #    with MyFrontend() as my_fe:
+    #        my_fe.run()
