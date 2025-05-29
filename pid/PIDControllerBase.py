@@ -389,7 +389,7 @@ class PIDControllerBase(midas.frontend.EquipmentBase):
             differential_on_measurement = self.client.odb_get(f'{self.odb_settings_dir}/differential_on_measurement'),
             starting_output = self.pv['ctrl'].get() # The starting point for the PID’s output.
             )
-        self.last_setpoint = self.pv['ctrl'].get()
+        self.last_setpoint = np.nan
         self.time_step_s = self.get_limited_var('time_step_s')
         self.target_timeout_s = self.client.odb_get(f'{self.odb_settings_dir}/target_timeout_s')
 
